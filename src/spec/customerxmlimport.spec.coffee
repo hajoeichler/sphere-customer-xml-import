@@ -60,8 +60,8 @@ describe 'transform', ->
 </Customer>'
 
     @import.transform @import.getAndFix(rawXml), (customers) ->
-      expect(customers.length).toBe 1
-      c = customers[0]
+      expect(customers['123'].length).toBe 1
+      c = customers['123'][0]
       expect(c.email).toBe 'some.one@example.com'
       expect(c.lastName).toBe 'One'
       expect(c.password).toBeDefined
@@ -88,12 +88,12 @@ describe 'transform', ->
 </Customer>'
 
     @import.transform @import.getAndFix(rawXml), (customers) ->
-      expect(customers.length).toBe 2
-      c = customers[0]
+      expect(customers['1234'].length).toBe 2
+      c = customers['1234'][0]
       expect(c.email).toBe 'some.one@example.com'
       expect(c.lastName).toBe 'One'
       expect(c.password).toBeDefined
-      c = customers[1]
+      c = customers['1234'][1]
       expect(c.email).toBe 'else@example.com'
       expect(c.lastName).toBe 'Else'
       expect(c.password).toBeDefined

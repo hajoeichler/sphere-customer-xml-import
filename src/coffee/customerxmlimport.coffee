@@ -16,8 +16,8 @@ exports.CustomerXmlImport.prototype.process = (data, callback) ->
 
   if data.attachments
     for k,v of data.attachments
-      @transform @getAndFix(v), (stocks) =>
-        @createOrUpdate stocks, callback
+      @transform @getAndFix(v), (customers) =>
+        @createOrUpdate customers, callback
   else
     @returnResult false, 'No XML data attachments found.', callback
 
@@ -45,9 +45,31 @@ exports.CustomerXmlImport.prototype.createOrUpdate = (customers, callback) ->
       @returnResult false, 'Can not fetch existing customers.', callback
       return
     existingCustomers = JSON.parse(body).results
+    email2id = {}
     for ec in existingCustomers
-      # get custom object
-      @returnResult false, 'Not implemented yet', callback
+      email2id[ec.email] = ec.id
+    console.log "Existing customers: " + _.size(email2id)
+    for c of customers
+      for e in customers[c]
+        if email2id[e.email]
+          @returnResult false, 'Not yet implemented', callback
+        else
+          @rest.POST "/customers", JSON.stringify(e), (error, response, body) =>
+            if response.statusCode is 201
+              id = JSON.parse(body).id
+              d =
+                container: "customerNr2id"
+                key: c
+                value: id
+              @rest.POST "/custom-objects", JSON.stringify(d), (error, response, body) =>
+                d =
+                  container: "id2CustomerNr"
+                  key: id
+                  value: c
+                @rest.POST "/custom-objects", JSON.stringify(d), (error, response, body) =>
+                  @returnResult true, 'Customer created', callback
+            else
+              @returnResult false, 'Problem on creating customer:' + body, callback
 
 exports.CustomerXmlImport.prototype.transform = (xml, callback) ->
   parseString xml, (err, result) =>
@@ -55,14 +77,16 @@ exports.CustomerXmlImport.prototype.transform = (xml, callback) ->
     @mapCustomer result.root, callback
 
 exports.CustomerXmlImport.prototype.mapCustomer = (xmljs, callback) ->
-  customers = []
+  customers = {}
   for k,xml of xmljs.Customer
+    cNr = @val xml, 'CustomerNr'
+    customers[cNr] = []
     for e in xml.Employee
+      eNr = @val e, 'employeeNr'
       d =
         email: @val e, 'email'
         firstName: @val e, 'firstname', ''
         lastName: @val e, 'lastname'
         password: Math.random().toString(36).slice(2) # some random password
-      customers.push d
+      customers[cNr].push d
   callback(customers)
-
