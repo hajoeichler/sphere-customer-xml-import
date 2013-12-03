@@ -15,9 +15,13 @@ exports.CustomerXmlImport.prototype.process = (data, callback) ->
   throw new Error 'Callback must be a function' unless _.isFunction callback
 
   if data.attachments
-    for k,v of data.attachments
-      @transform @getAndFix(v), (customers) =>
-        @createOrUpdate customers, callback
+    existing = Q.all [@getCustomerGroupId('B2B')]
+    existing.spread (customerGroupId) =>
+      for k,v of data.attachments
+        @transform @getAndFix(v), (customers) =>
+          @createOrUpdate customers, callback
+    .fail (err) =>
+      @returnResult false, 'Problem: ' + err, callback
   else
     @returnResult false, 'No XML data attachments found.', callback
 
@@ -90,3 +94,17 @@ exports.CustomerXmlImport.prototype.mapCustomer = (xmljs, callback) ->
         password: Math.random().toString(36).slice(2) # some random password
       customers[cNr].push d
   callback(customers)
+
+exports.CustomerXmlImport.prototype.getCustomerGroupId = (name) ->
+  deferred = Q.defer()
+  query = encodeURIComponent "name=\"#{name}\""
+  @rest.GET "/customer-groups?where=#{query}", (error, response, body) ->
+    if response.statusCode is 200
+      res = JSON.parse(body).results
+      if res.length > 0
+        deferred.resolve res[0].id
+      else
+      deferred.reject new Error "There is no customer group with name #{name}."
+    else
+      deferred.reject new Error "Problem on getting customer group."
+  deferred.promise
