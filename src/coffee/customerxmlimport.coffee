@@ -18,7 +18,7 @@ exports.CustomerXmlImport.prototype.process = (data, callback) ->
     existing = Q.all [@getCustomerGroupId('B2B')]
     existing.spread (customerGroupId) =>
       for k,v of data.attachments
-        @transform @getAndFix(v), (customers) =>
+        @transform @getAndFix(v), customerGroupId, (customers) =>
           @createOrUpdate customers, callback
     .fail (err) =>
       @returnResult false, 'Problem: ' + err, callback
@@ -60,7 +60,8 @@ exports.CustomerXmlImport.prototype.createOrUpdate = (customers, callback) ->
         else
           @rest.POST "/customers", JSON.stringify(e), (error, response, body) =>
             if response.statusCode is 201
-              id = JSON.parse(body).id
+              res = JSON.parse(body)
+              id = res.customer.id
               d =
                 container: "customerNr2id"
                 key: c
@@ -71,20 +72,32 @@ exports.CustomerXmlImport.prototype.createOrUpdate = (customers, callback) ->
                   key: id
                   value: c
                 @rest.POST "/custom-objects", JSON.stringify(d), (error, response, body) =>
-                  @returnResult true, 'Customer created', callback
+                  if e.customerGroup
+                    d =
+                      id: id
+                      version: res.customer.version
+                      actions: [ { action: "setCustomerGroup", customerGroup: e.customerGroup } ]
+                    @rest.POST "/customers/#{id}", JSON.stringify(d), (error, response, body) =>
+                      console.log error
+                      console.log response.statusCode
+                      console.log body
+                      @returnResult true, 'Customer created with group', callback
+                  else
+                    @returnResult true, 'Customer created without group', callback
             else
               @returnResult false, 'Problem on creating customer:' + body, callback
 
-exports.CustomerXmlImport.prototype.transform = (xml, callback) ->
+exports.CustomerXmlImport.prototype.transform = (xml, customerGroupId, callback) ->
   parseString xml, (err, result) =>
     @returnResult false, 'Error on parsing XML:' + err, callback if err
-    @mapCustomer result.root, callback
+    @mapCustomer result.root, customerGroupId, callback
 
-exports.CustomerXmlImport.prototype.mapCustomer = (xmljs, callback) ->
+exports.CustomerXmlImport.prototype.mapCustomer = (xmljs, customerGroupId, callback) ->
   customers = {}
   for k,xml of xmljs.Customer
     cNr = @val xml, 'CustomerNr'
     customers[cNr] = []
+    cg = @val xml, 'Group', 'NONE'
     for e in xml.Employee
       eNr = @val e, 'employeeNr'
       d =
@@ -92,6 +105,10 @@ exports.CustomerXmlImport.prototype.mapCustomer = (xmljs, callback) ->
         firstName: @val e, 'firstname', ''
         lastName: @val e, 'lastname'
         password: Math.random().toString(36).slice(2) # some random password
+      if cg is 'B2B'
+        d.customerGroup =
+          typeId: 'customer-group'
+          id: customerGroupId
       customers[cNr].push d
   callback(customers)
 

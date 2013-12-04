@@ -44,7 +44,7 @@ describe 'transform', ->
   <Firstname></Firstname>
   <LastName>One</LastName>
   <Password></Password>
-  <Group>B2C</Group>
+  <Group>B2B</Group>
   <Street>Somewhere 42</Street>
   <zip>12345</zip>
   <town>Gotham City</town>
@@ -59,12 +59,15 @@ describe 'transform', ->
   </Employee>
 </Customer>'
 
-    @import.transform @import.getAndFix(rawXml), (customers) ->
+    @import.transform @import.getAndFix(rawXml), 'cg123', (customers) ->
       expect(customers['123'].length).toBe 1
       c = customers['123'][0]
       expect(c.email).toBe 'some.one@example.com'
       expect(c.lastName).toBe 'One'
       expect(c.password).toBeDefined
+      expect(c.customerGroup).toBeDefined
+      expect(c.customerGroup.typeId).toBe 'customer-group'
+      expect(c.customerGroup.id).toBe 'cg123'
       console.log c.password
       done()
 
@@ -87,7 +90,7 @@ describe 'transform', ->
   </Employee>
 </Customer>'
 
-    @import.transform @import.getAndFix(rawXml), (customers) ->
+    @import.transform @import.getAndFix(rawXml), 'cg123', (customers) ->
       expect(customers['1234'].length).toBe 2
       c = customers['1234'][0]
       expect(c.email).toBe 'some.one@example.com'
