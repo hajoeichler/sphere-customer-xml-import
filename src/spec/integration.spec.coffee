@@ -12,6 +12,7 @@ describe 'process', ->
     rawXml = '
 <Customer>
   <CustomerNr>1234</CustomerNr>
+  <Street>Foo 1</Street>
   <Group>B2B</Group>
   <Employee>
     <employeeNr>2</employeeNr>

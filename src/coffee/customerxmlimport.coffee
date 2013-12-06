@@ -44,7 +44,7 @@ exports.CustomerXmlImport.prototype.getAndFix = (raw) ->
 # end of helpers
 
 exports.CustomerXmlImport.prototype.createOrUpdate = (customers, callback) ->
-  @rest.GET "/customers", (error, response, body) =>
+  @rest.GET "/customers?limit=0", (error, response, body) =>
     if response.statusCode is not 200
       @returnResult false, 'Can not fetch existing customers.', callback
       return
@@ -94,17 +94,42 @@ exports.CustomerXmlImport.prototype.transform = (xml, customerGroupId, callback)
 
 exports.CustomerXmlImport.prototype.mapCustomer = (xmljs, customerGroupId, callback) ->
   customers = {}
+  usedEmails = []
   for k,xml of xmljs.Customer
     cNr = @val xml, 'CustomerNr'
     customers[cNr] = []
+
+    country = @val xml, 'country'
+    if country is not 'D'
+      console.log "Unsupported country"
+      continue
+
     cg = @val xml, 'Group', 'NONE'
     for e in xml.Employee
       eNr = @val e, 'employeeNr'
+      email = @val e, 'email'
+      if not email
+        email = @val xml, 'email'
+      if not email
+        continue
+      if _.indexOf(usedEmails, email) is not -1
+        continue
+      usedEmails.push email
+      s = @splitStreet @val xml, 'Street'
       d =
-        email: @val e, 'email'
+        email: email
         firstName: @val e, 'firstname', ''
         lastName: @val e, 'lastname'
         password: Math.random().toString(36).slice(2) # some random password
+        addresses: [
+          streetName: s.name
+          streetNumber: s.number
+          postalCode: @val xml, 'zip'
+          city: @val xml, 'town'
+          country: 'DE'
+          phone: @val xml, 'phone'
+        ]
+      d.addresses[0].additionalStreetInfo = s.additionalStreetInfo if s.additionalStreetInfo
       if cg is 'B2B'
         d.customerGroup =
           typeId: 'customer-group'
@@ -112,16 +137,40 @@ exports.CustomerXmlImport.prototype.mapCustomer = (xmljs, customerGroupId, callb
       customers[cNr].push d
   callback(customers)
 
+exports.CustomerXmlImport.prototype.splitStreet = (street) ->
+  r = new RegExp /\d+/
+  i = street.search r
+  if i < 0
+    d =
+      name: street
+    return d
+
+  n = street.substring(i).trim()
+  d =
+    name: street.substring(0, i).trim()
+    number: n
+
+  r = new RegExp /[a-zA-Z]{2,}/
+  i = n.search r
+  if i > 0
+    d.number = n.substring(0,i).trim()
+    d.additionalStreetInfo = n.substring(i).trim()
+
+  d
+
 exports.CustomerXmlImport.prototype.getCustomerGroupId = (name) ->
   deferred = Q.defer()
   query = encodeURIComponent "name=\"#{name}\""
   @rest.GET "/customer-groups?where=#{query}", (error, response, body) ->
-    if response.statusCode is 200
-      res = JSON.parse(body).results
-      if res.length > 0
-        deferred.resolve res[0].id
-      else
-      deferred.reject new Error "There is no customer group with name #{name}."
+    if error
+      deferred.reject error
     else
-      deferred.reject new Error "Problem on getting customer group."
+      if response.statusCode is 200
+        res = JSON.parse(body).results
+        if res.length > 0
+          deferred.resolve res[0].id
+        else
+          deferred.reject "There is no customer group with name #{name}."
+      else
+        deferred.reject "Problem on getting customer group."
   deferred.promise
