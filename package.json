@@ -1,9 +1,15 @@
 {
   "name": "sphere-customer-xml-import",
   "description": "Import your customer data into SPHERE.IO's inventory from XML.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "homepage": "https://github.com/hajoeichler/sphere-customer-xml-import",
-  "keywords": [ "sphere", "api", "xml", "import", "customer" ],
+  "keywords": [
+    "sphere",
+    "api",
+    "xml",
+    "import",
+    "customer"
+  ],
   "author": {
     "name": "Hajo Eichler",
     "email": "hajo.eichler@commercetools.de"
