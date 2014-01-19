@@ -1,4 +1,6 @@
-# sphere-customer-xml-import [![Build Status](https://secure.travis-ci.org/hajoeichler/sphere-customer-xml-import.png?branch=master)](http://travis-ci.org/hajoeichler/sphere-customer-xml-import)
+# sphere-customer-xml-import
+
+[![Build Status](https://secure.travis-ci.org/hajoeichler/sphere-customer-xml-import.png?branch=master)](http://travis-ci.org/hajoeichler/sphere-customer-xml-import) [![Dependency Status](https://david-dm.org/hajoeichler/sphere-customer-xml-import.png?theme=shields.io)](https://david-dm.org/hajoeichler/sphere-customer-xml-import) [![devDependency Status](https://david-dm.org/hajoeichler/sphere-customer-xml-import/dev-status.png?theme=shields.io)](https://david-dm.org/hajoeichler/sphere-customer-xml-import#info=devDependencies)
 
 This repository contains a mapping compontent to translate products from XML data into SPHERE.IO products JSON format.
 
