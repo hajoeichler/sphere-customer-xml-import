@@ -1,5 +1,5 @@
 Config = require '../config'
-CustomerXmlImport = require('../lib/customerxmlimport').CustomerXmlImport
+CustomerXmlImport = require '../lib/customerxmlimport'
 
 describe 'CustomerXmlImport', ->
   beforeEach ->
@@ -8,24 +8,20 @@ describe 'CustomerXmlImport', ->
   it 'should initialize', ->
     expect(@import).toBeDefined()
 
-  it 'should initialize with options', ->
-    expect(@import._options).toBe 'foo'
-
-
 describe 'process', ->
   beforeEach ->
     @import = new CustomerXmlImport()
 
   it 'should throw error if no JSON object is passed', ->
-    expect(@import.process).toThrow new Error('JSON Object required')
+    expect(@import.elasticio).toThrow new Error('JSON Object required')
 
   it 'should throw error if no JSON object is passed', ->
-    expect(=> @import.process({})).toThrow new Error('Callback must be a function')
+    expect(=> @import.elasticio({})).toThrow new Error('Callback must be a function')
 
   it 'should call the given callback and return messge', (done) ->
-    @import.process {}, (data)->
-      expect(data.message.status).toBe false
-      expect(data.message.msg).toBe 'No XML data attachments found.'
+    @import.elasticio {}, {}, (data)->
+      expect(data.status).toBe false
+      expect(data.message).toBe 'No XML attachments found!'
       done()
 
 describe '#splitStreet', ->
@@ -105,7 +101,7 @@ describe 'transform', ->
   </Employee>
 </Customer>'
 
-    @import.transform @import.getAndFix(rawXml), 'cg123', (customers) ->
+    @import.transform rawXml, 'cg123', (customers) ->
       expect(customers['123'].length).toBe 1
       c = customers['123'][0]
       expect(c.email).toBe 'some.one@example.com'
@@ -124,7 +120,7 @@ describe 'transform', ->
       expect(c.customerGroup).toBeDefined
       expect(c.customerGroup.typeId).toBe 'customer-group'
       expect(c.customerGroup.id).toBe 'cg123'
-      console.log c.password
+      expect(c.password.length).toBeGreaterThan 7
       done()
 
   it 'single attachment - customer with two employee', (done) ->
@@ -147,7 +143,7 @@ describe 'transform', ->
   </Employee>
 </Customer>'
 
-    @import.transform @import.getAndFix(rawXml), 'cg123', (customers) ->
+    @import.transform rawXml, 'cg123', (customers) ->
       expect(customers['1234'].length).toBe 2
       c = customers['1234'][0]
       expect(c.email).toBe 'some.one@example.com'

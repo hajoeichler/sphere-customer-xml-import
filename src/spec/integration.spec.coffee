@@ -1,5 +1,5 @@
 Config = require '../config'
-CustomerXmlImport = require('../lib/customerxmlimport').CustomerXmlImport
+CustomerXmlImport = require '../lib/customerxmlimport'
 
 # Increase timeout
 jasmine.getEnv().defaultTimeoutInterval = 10000
@@ -22,10 +22,10 @@ describe 'process', ->
     <lastname>One</lastname>
   </Employee>
 </Customer>'
-    d =
+    msg =
       attachments:
         customer: rawXml
-    @import.process d, (msg) =>
-      expect(msg.message.status).toBe false
-      expect(msg.message.msg).toBe 'Not yet implemented'
+    @import.elasticio msg, {}, (msg) =>
+      expect(msg.status).toBe false
+      expect(msg.message).toBe 'Update of customer isnt implemented yet!'
       done()
