@@ -28,7 +28,7 @@ describe '#run', ->
     @import.run rawXml, (result) ->
       console.log result unless result.status
       expect(result.status).toBe true
-      expect(result.message).toBe 'Update of customer isnt implemented yet!'
+      expect(result.message).toBe 'Update of customer is not implemented yet!'
       done()
 
   it 'should create customer and payment info object', (done) ->

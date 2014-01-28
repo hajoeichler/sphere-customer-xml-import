@@ -3,14 +3,14 @@ CustomerXmlImport = require '../lib/customerxmlimport'
 
 describe 'CustomerXmlImport', ->
   beforeEach ->
-    @import = new CustomerXmlImport('foo')
+    @import = new CustomerXmlImport Config
 
   it 'should initialize', ->
     expect(@import).toBeDefined()
 
 describe 'process', ->
   beforeEach ->
-    @import = new CustomerXmlImport()
+    @import = new CustomerXmlImport Config
 
   it 'should throw error if no JSON object is passed', ->
     expect(@import.elasticio).toThrow new Error('JSON Object required')
@@ -104,7 +104,7 @@ describe 'transform', ->
   <Discount>3.500</Discount>
 </Customer>'
 
-    @import.transform rawXml, B2B: 'cg123', (data) ->
+    @import.transform(rawXml, B2B: 'cg123').then (data) ->
       customers = data.customers
       expect(customers['123'].length).toBe 1
       c = customers['123'][0]
@@ -132,6 +132,9 @@ describe 'transform', ->
       expect(paymentInfos['123'].discount).toEqual 3.5
 
       done()
+    .fail (msg) ->
+      expect(msg).toBe false
+      done()
 
   it 'single attachment - customer with two employee', (done) ->
     rawXml = '
@@ -157,7 +160,7 @@ describe 'transform', ->
   <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
 </Customer>'
 
-    @import.transform rawXml, B2C: 'cg123', (data) ->
+    @import.transform(rawXml, B2C: 'cg123').then (data) ->
       customers = data.customers
       expect(customers['1234'].length).toBe 2
       c = customers['1234'][0]
@@ -172,4 +175,8 @@ describe 'transform', ->
       expect(paymentInfos['1234'].paymentMethodCode).toEqual ['101','105']
       expect(paymentInfos['1234'].paymentMethod).toEqual ['Gutschrift','Vorauskasse']
       expect(paymentInfos['1234'].discount).toEqual 0
+
+      done()
+    .fail (msg) ->
+      expect(msg).toBe false
       done()

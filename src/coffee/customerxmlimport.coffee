@@ -1,6 +1,5 @@
 _ = require('underscore')._
 {parseString} = require 'xml2js'
-Config = require '../config'
 Rest = require('sphere-node-connect').Rest
 CommonUpdater = require('sphere-node-sync').CommonUpdater
 Q = require 'q'
@@ -16,7 +15,7 @@ class CustomerXmlImport extends CommonUpdater
 
   constructor: (options = {}) ->
     super options
-    @rest = new Rest Config
+    @rest = new Rest options
     @
 
   elasticio: (msg, cfg, cb, snapshot) ->
@@ -37,8 +36,10 @@ class CustomerXmlImport extends CommonUpdater
       customerGroupName2Id = {}
       customerGroupName2Id[CUSTOMER_GROUP_B2B_NAME] = b2bCustomerGroup.id
       customerGroupName2Id[CUSTOMER_GROUP_B2C_WITH_CARD_NAME] = b2cWithCardCustomerGroup.id
-      @transform xmlString, customerGroupName2Id, (data) =>
+      @transform(xmlString, customerGroupName2Id).then (data) =>
         @createOrUpdate data, callback
+      .fail (msg) =>
+        @returnResult false, msg, callback
 
   createOrUpdate: (data, callback) ->
     @rest.GET "/customers?limit=0", (error, response, body) =>
@@ -61,7 +62,7 @@ class CustomerXmlImport extends CommonUpdater
           if _.has email2id, employee.email
             # TODO: support updating of customers
             deferred = Q.defer()
-            deferred.resolve 'Update of customer isnt implemented yet!'
+            deferred.resolve 'Update of customer is not implemented yet!'
             posts.push deferred.promise
           else
             posts.push @create employee, paymentInfo, callback
@@ -70,9 +71,11 @@ class CustomerXmlImport extends CommonUpdater
         @returnResult true, 'Nothing done.', callback
 
       Q.all(posts).fail (msg) =>
-        @returnResult false, _.flatten(msg), callback
+        msg = _.flatten msg if _.isArray msg
+        @returnResult false, msg, callback
       .then (msg) =>
-        @returnResult true, _.flatten(msg), callback
+        msg = _.flatten msg if _.isArray msg
+        @returnResult true, msg, callback
 
   create: (newCustomer, paymentInfo, callback) ->
     console.log "create"
@@ -151,16 +154,21 @@ class CustomerXmlImport extends CommonUpdater
 
     deferred.promise
 
-  transform: (rawXml, customerGroupName2Id, callback) ->
+  transform: (rawXml, customerGroupName2Id) ->
+    deferred = Q.defer()
     xmlHelpers.xmlTransform xmlHelpers.xmlFix(rawXml), (err, result) =>
-      @returnResult false, 'Error on parsing XML:' + err, callback if err
-      @mapCustomers result.root, customerGroupName2Id, callback
+      if err
+        deferred.reject 'Error on parsing XML:' + err
+      else
+        deferred.resolve @mapCustomers(result.root, customerGroupName2Id)
 
-  mapCustomers: (xmljs, customerGroupName2Id, callback) ->
+    deferred.promise
+
+  mapCustomers: (xmljs, customerGroupName2Id) ->
     console.log 'mapCustomers'
     paymentInfos = {}
     customers = {}
-    usedEmails = []
+    @usedEmails = []
     for k, xml of xmljs.Customer
       customerNumber = xmlHelpers.xmlVal xml, 'CustomerNr'
       customers[customerNumber] = []
@@ -170,7 +178,6 @@ class CustomerXmlImport extends CommonUpdater
         # TODO support multiple countries
         console.log "Unsupported country '#{country}'"
         continue
-
       customerGroup = xmlHelpers.xmlVal xml, 'Group', NO_CUSTOMER_GROUP
       discount = xmlHelpers.xmlVal xml, 'Discount', '0.0'
       discount = parseFloat discount
@@ -182,10 +189,10 @@ class CustomerXmlImport extends CommonUpdater
       paymentMethodCode = xmlHelpers.xmlVal xml, 'PaymentMethodCode', []
       paymentMethod = xmlHelpers.xmlVal xml, 'PaymentMethod', []
 
-      if typeof paymentMethod is 'string'
+      if _.isString paymentMethod
         paymentMethod = paymentMethod.split ','
 
-      if typeof paymentMethodCode is 'string'
+      if _.isString paymentMethodCode
         paymentMethodCode = paymentMethodCode.split ','
 
       paymentInfos[customerNumber] =
@@ -193,48 +200,55 @@ class CustomerXmlImport extends CommonUpdater
         paymentMethodCode: paymentMethodCode
         discount: discount
 
-      for employee in xml.Employees[0].Employee
-        eNr = xmlHelpers.xmlVal employee, 'employeeNr'
-        email = xmlHelpers.xmlVal employee, 'email'
-        email = xmlHelpers.xmlVal xml, 'EmailCompany' unless email
-
-        continue unless email # we can't import customers without email
-        continue if _.indexOf(usedEmails, email) isnt -1 # email already used
-
-        usedEmails.push email
-
-        # TODO: add mapping for
-        # - title
-        # defaultShippingAddressId
-        # defaultBillingAddressId
-
-        streetInfo = @splitStreet xmlHelpers.xmlVal xml, 'Street'
-        customer =
-          email: email
-          externalId: customerNumber
-          firstName: xmlHelpers.xmlVal employee, 'firstname', ''
-          lastName: xmlHelpers.xmlVal employee, 'lastname'
-          password: Math.random().toString(36).slice(2) # some random password
-          addresses: [
-            streetName: streetInfo.name
-            streetNumber: streetInfo.number
-            postalCode: xmlHelpers.xmlVal xml, 'zip'
-            city: xmlHelpers.xmlVal xml, 'town'
-            country: 'DE'
-            phone: xmlHelpers.xmlVal xml, 'phone'
-          ]
-        customer.addresses[0].additionalStreetInfo = streetInfo.additionalStreetInfo if streetInfo.additionalStreetInfo
-        if customerGroup isnt NO_CUSTOMER_GROUP
-          customer.customerGroup =
-            typeId: 'customer-group'
-            id: customerGroupName2Id[customerGroup]
-        customers[customerNumber].push customer
+      unless xml.Employees
+        customer = @createCustomerData xml, null, customerNumber, customerGroupName2Id, customerGroup
+        customers[customerNumber].push customer if customer
+      else
+        for employee in xml.Employees[0].Employee
+          customer = @createCustomerData xml, employee, customerNumber, customerGroupName2Id, customerGroup
+          customers[customerNumber].push customer if customer
 
     data =
       customers: customers
       paymentInfos: paymentInfos
 
-    callback data
+  createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup) ->
+    console.log 'createCustomerData'
+    employee = xml unless employee
+    # TODO: add mapping for
+    # - title
+    # defaultShippingAddressId
+    # defaultBillingAddressId
+
+    email = xmlHelpers.xmlVal employee, 'email'
+    email = xmlHelpers.xmlVal xml, 'EmailCompany' unless email
+
+    return unless email # we can't import customers without email
+    return if _.indexOf(@usedEmails, email) isnt -1 # email already used
+    @usedEmails.push email
+
+    streetInfo = @splitStreet xmlHelpers.xmlVal xml, 'Street', ''
+    customer =
+      email: email
+      externalId: customerNumber
+      firstName: xmlHelpers.xmlVal employee, 'firstname', ''
+      lastName: xmlHelpers.xmlVal employee, 'lastname', xmlHelpers.xmlVal(xml, 'LastName')
+      password: Math.random().toString(36).slice(2) # some random password
+      addresses: [
+        streetName: streetInfo.name
+        streetNumber: streetInfo.number
+        postalCode: xmlHelpers.xmlVal xml, 'zip'
+        city: xmlHelpers.xmlVal xml, 'town'
+        country: 'DE'
+        phone: xmlHelpers.xmlVal xml, 'phone'
+      ]
+    customer.addresses[0].additionalStreetInfo = streetInfo.additionalStreetInfo if streetInfo.additionalStreetInfo
+    if customerGroup isnt NO_CUSTOMER_GROUP
+      customer.customerGroup =
+        typeId: 'customer-group'
+        id: customerGroupName2Id[customerGroup]
+
+    customer
 
   splitStreet: (street) ->
     regex = new RegExp /\d+/
