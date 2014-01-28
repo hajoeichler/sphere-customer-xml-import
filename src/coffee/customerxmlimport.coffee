@@ -54,29 +54,39 @@ class CustomerXmlImport extends CommonUpdater
         email2id[ec.email] = ec.id
       console.log "Existing customers: " + _.size(email2id)
 
-      foundOne = false
+      posts = []
       for customer of data.customers
         for employee in data.customers[customer]
           paymentInfo = data.paymentInfos[customer]
-          foundOne = true
           if _.has email2id, employee.email
-            @returnResult false, 'Update of customer isnt implemented yet!', callback
+            # TODO: support updating of customers
+            deferred = Q.defer()
+            deferred.resolve 'Update of customer isnt implemented yet!'
+            posts.push deferred.promise
           else
-            @create employee, paymentInfo, callback
+            posts.push @create employee, paymentInfo, callback
 
-      unless foundOne
+      if _.size(posts) is 0
         @returnResult true, 'Nothing done.', callback
+
+      Q.all(posts).fail (msg) =>
+        @returnResult false, _.flatten(msg), callback
+      .then (msg) =>
+        @returnResult true, _.flatten(msg), callback
 
   create: (newCustomer, paymentInfo, callback) ->
     console.log "create"
+    deferred = Q.defer()
     @createCustomer(newCustomer).fail (msg) =>
-      @returnResult false, msg, callback
+      deferred.reject msg
     .then (customer) =>
       posts = [@createPaymentInfo(customer, paymentInfo), @linkCustomerIntoGroup(customer, newCustomer.customerGroup)]
       Q.all(posts).fail (msg) =>
-        @returnResult false, msg, callback
+        deferred.reject msg
       .then (msg) =>
-        @returnResult true, msg, callback
+        deferred.resolve msg
+
+    deferred.promise
 
   createCustomer: (newCustomer) ->
     console.log 'createCustomer'
@@ -163,14 +173,20 @@ class CustomerXmlImport extends CommonUpdater
 
       customerGroup = xmlHelpers.xmlVal xml, 'Group', NO_CUSTOMER_GROUP
       discount = xmlHelpers.xmlVal xml, 'Discount', '0.0'
-      intDiscount = parseInt discount
+      discount = parseFloat discount
 
       # B2C: set customer group if she has a discount. Otherwise the customer isn't in any group
       customerGroup = CUSTOMER_GROUP_B2C_WITH_CARD_NAME if customerGroup is CUSTOMER_GROUP_B2C_NAME
-      customerGroup = NO_CUSTOMER_GROUP if customerGroup is CUSTOMER_GROUP_B2C_WITH_CARD_NAME and intDiscount is 0
+      customerGroup = NO_CUSTOMER_GROUP if customerGroup is CUSTOMER_GROUP_B2C_WITH_CARD_NAME and discount is 0
 
       paymentMethodCode = xmlHelpers.xmlVal xml, 'PaymentMethodCode', []
       paymentMethod = xmlHelpers.xmlVal xml, 'PaymentMethod', []
+
+      if typeof paymentMethod is 'string'
+        paymentMethod = paymentMethod.split ','
+
+      if typeof paymentMethodCode is 'string'
+        paymentMethodCode = paymentMethodCode.split ','
 
       paymentInfos[customerNumber] =
         paymentMethod: paymentMethod

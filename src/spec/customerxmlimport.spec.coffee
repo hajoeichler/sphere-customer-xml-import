@@ -101,6 +101,7 @@ describe 'transform', ->
       <lastname>One</lastname>
     </Employee>
   </Employees>
+  <Discount>3.500</Discount>
 </Customer>'
 
     @import.transform rawXml, B2B: 'cg123', (data) ->
@@ -124,6 +125,12 @@ describe 'transform', ->
       expect(c.customerGroup.typeId).toBe 'customer-group'
       expect(c.customerGroup.id).toBe 'cg123'
       expect(c.password.length).toBeGreaterThan 7
+
+      paymentInfos = data.paymentInfos
+      expect(paymentInfos['123'].paymentMethodCode).toEqual [ ]
+      expect(paymentInfos['123'].paymentMethod).toEqual [ ]
+      expect(paymentInfos['123'].discount).toEqual 3.5
+
       done()
 
   it 'single attachment - customer with two employee', (done) ->
@@ -146,6 +153,8 @@ describe 'transform', ->
       <lastname>Else</lastname>
     </Employee>
   </Employees>
+  <PaymentMethodCode>101,105</PaymentMethodCode>
+  <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
 </Customer>'
 
     @import.transform rawXml, B2C: 'cg123', (data) ->
@@ -159,4 +168,8 @@ describe 'transform', ->
       expect(c.email).toBe 'else@example.com'
       expect(c.lastName).toBe 'Else'
       expect(c.password).toBeDefined
+      paymentInfos = data.paymentInfos
+      expect(paymentInfos['1234'].paymentMethodCode).toEqual ['101','105']
+      expect(paymentInfos['1234'].paymentMethod).toEqual ['Gutschrift','Vorauskasse']
+      expect(paymentInfos['1234'].discount).toEqual 0
       done()
