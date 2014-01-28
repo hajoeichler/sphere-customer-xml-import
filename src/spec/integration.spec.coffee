@@ -25,7 +25,7 @@ describe '#run', ->
     </Employee>
   </Employees>
 </Customer>'
-    @import.run rawXml, (result) =>
+    @import.run rawXml, (result) ->
       console.log result unless result.status
       expect(result.status).toBe true
       expect(result.message).toBe 'Update of customer isnt implemented yet!'
@@ -48,7 +48,7 @@ describe '#run', ->
     </Employee>
   </Employees>
 </Customer>"
-    @import.run rawXml, (result) =>
+    @import.run rawXml, (result) ->
       console.log result unless result.status
       expect(result.status).toBe true
       expect(_.size(result.message)).toBe 2
@@ -73,14 +73,13 @@ describe '#run', ->
     </Employee>
   </Employees>
 </Customer>"
-    @import.run rawXml, (result) =>
+    @import.run rawXml, (result) ->
       console.log result unless result.status
       expect(result.status).toBe true
       expect(_.size(result.message)).toBe 2
       expect(result.message['Payment info created.']).toBe 1
       expect(result.message['Customer linked to customer group.']).toBe 1
       done()
-
 
   it 'should create multiple customer', (done) ->
     unique = new Date().getTime()
