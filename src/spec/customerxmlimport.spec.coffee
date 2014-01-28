@@ -19,7 +19,7 @@ describe 'process', ->
     expect(=> @import.elasticio({})).toThrow new Error('Callback must be a function')
 
   it 'should call the given callback and return messge', (done) ->
-    @import.elasticio {}, {}, (data)->
+    @import.elasticio {}, {}, (data) ->
       expect(data.status).toBe false
       expect(data.message).toBe 'No XML attachments found!'
       done()
@@ -92,16 +92,19 @@ describe 'transform', ->
   <town>Gotham City</town>
   <country>D</country>
   <phone>001-1234567890</phone>
-  <Employee>
-    <employeeNr>1</employeeNr>
-    <email>some.one@example.com</email>
-    <gender>Mrs.</gender>
-    <firstname>Some</firstname>
-    <lastname>One</lastname>
-  </Employee>
+  <Employees>
+    <Employee>
+      <employeeNr>1</employeeNr>
+      <email>some.one@example.com</email>
+      <gender>Mrs.</gender>
+      <firstname>Some</firstname>
+      <lastname>One</lastname>
+    </Employee>
+  </Employees>
 </Customer>'
 
-    @import.transform rawXml, 'cg123', (customers) ->
+    @import.transform rawXml, B2B: 'cg123', (data) ->
+      customers = data.customers
       expect(customers['123'].length).toBe 1
       c = customers['123'][0]
       expect(c.email).toBe 'some.one@example.com'
@@ -128,22 +131,25 @@ describe 'transform', ->
 <Customer>
   <CustomerNr>1234</CustomerNr>
   <Street>Somewhere 42</Street>
-  <Employee>
-    <employeeNr>2</employeeNr>
-    <email>some.one@example.com</email>
-    <gender>Mrs.</gender>
-    <firstname>Some</firstname>
-    <lastname>One</lastname>
-  </Employee>
-  <Employee>
-    <employeeNr>4</employeeNr>
-    <email>else@example.com</email>
-    <gender>Mr.</gender>
-    <lastname>Else</lastname>
-  </Employee>
+  <Employees>
+    <Employee>
+      <employeeNr>2</employeeNr>
+      <email>some.one@example.com</email>
+      <gender>Mrs.</gender>
+      <firstname>Some</firstname>
+      <lastname>One</lastname>
+    </Employee>
+    <Employee>
+      <employeeNr>4</employeeNr>
+      <email>else@example.com</email>
+      <gender>Mr.</gender>
+      <lastname>Else</lastname>
+    </Employee>
+  </Employees>
 </Customer>'
 
-    @import.transform rawXml, 'cg123', (customers) ->
+    @import.transform rawXml, B2C: 'cg123', (data) ->
+      customers = data.customers
       expect(customers['1234'].length).toBe 2
       c = customers['1234'][0]
       expect(c.email).toBe 'some.one@example.com'

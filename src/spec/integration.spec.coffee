@@ -14,18 +14,17 @@ describe 'process', ->
   <CustomerNr>1234</CustomerNr>
   <Street>Foo 1</Street>
   <Group>B2B</Group>
-  <Employee>
-    <employeeNr>2</employeeNr>
-    <email>some.one+13@example.com</email>
-    <gender>Mrs.</gender>
-    <firstname>Some</firstname>
-    <lastname>One</lastname>
-  </Employee>
+  <Employees>
+    <Employee>
+      <employeeNr>2</employeeNr>
+      <email>some.one+27@example.com</email>
+      <gender>Mrs.</gender>
+      <firstname>Some</firstname>
+      <lastname>One</lastname>
+    </Employee>
+  </Employees>
 </Customer>'
-    msg =
-      attachments:
-        customer: rawXml
-    @import.elasticio msg, {}, (msg) =>
+    @import.run rawXml, (msg) =>
       expect(msg.status).toBe false
       expect(msg.message).toBe 'Update of customer isnt implemented yet!'
       done()
