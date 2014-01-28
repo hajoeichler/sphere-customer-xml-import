@@ -3,7 +3,7 @@ Config = require '../config'
 CustomerXmlImport = require '../lib/customerxmlimport'
 
 # Increase timeout
-jasmine.getEnv().defaultTimeoutInterval = 10000
+jasmine.getEnv().defaultTimeoutInterval = 20000
 
 describe 'process', ->
   beforeEach ->
@@ -51,6 +51,6 @@ describe 'process', ->
       console.log result unless result.status
       expect(result.status).toBe true
       expect(_.size(result.message)).toBe 2
-      expect(result.message['Customer has no paymentInfo.']).toBe 1
+      expect(result.message['Payment info created.']).toBe 1
       expect(result.message['Customer has no group.']).toBe 1
       done()

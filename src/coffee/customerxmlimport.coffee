@@ -57,11 +57,12 @@ class CustomerXmlImport extends CommonUpdater
       foundOne = false
       for customer of data.customers
         for employee in data.customers[customer]
+          paymentInfo = data.paymentInfos[customer]
           foundOne = true
           if _.has email2id, employee.email
             @returnResult false, 'Update of customer isnt implemented yet!', callback
           else
-            @create employee, null, callback
+            @create employee, paymentInfo, callback
 
       unless foundOne
         @returnResult true, 'Nothing done.', callback
@@ -101,11 +102,8 @@ class CustomerXmlImport extends CommonUpdater
 
     customObj =
       container: "paymentMethodInfo"
-      key: id
-      value:
-        methodCodes: [103, 105]
-        paymentNames: ['', '']
-        discount: 'TODO'
+      key: customer.id
+      value: paymentInfo
 
     @rest.POST '/custom-objects', JSON.stringify(customObj), (error, response, body) ->
       if error
@@ -150,7 +148,7 @@ class CustomerXmlImport extends CommonUpdater
 
   mapCustomers: (xmljs, customerGroupName2Id, callback) ->
     console.log 'mapCustomers'
-    customInfo ={}
+    paymentInfos = {}
     customers = {}
     usedEmails = []
     for k, xml of xmljs.Customer
@@ -166,14 +164,15 @@ class CustomerXmlImport extends CommonUpdater
       customerGroup = xmlHelpers.xmlVal xml, 'Group', NO_CUSTOMER_GROUP
       discount = xmlHelpers.xmlVal xml, 'Discount', '0.0'
       intDiscount = parseInt discount
-      # set customer group if b2c has a discount. Otherwise the customer isn't in any group
+
+      # B2C: set customer group if she has a discount. Otherwise the customer isn't in any group
       customerGroup = CUSTOMER_GROUP_B2C_WITH_CARD_NAME if customerGroup is CUSTOMER_GROUP_B2C_NAME
       customerGroup = NO_CUSTOMER_GROUP if customerGroup is CUSTOMER_GROUP_B2C_WITH_CARD_NAME and intDiscount is 0
 
-      paymentMethodCode = xmlHelpers.xmlVal xml, 'PaymentMethodCode'
-      paymentMethod = xmlHelpers.xmlVal xml, 'PaymentMethod'
+      paymentMethodCode = xmlHelpers.xmlVal xml, 'PaymentMethodCode', []
+      paymentMethod = xmlHelpers.xmlVal xml, 'PaymentMethod', []
 
-      customInfo[customerNumber] =
+      paymentInfos[customerNumber] =
         paymentMethod: paymentMethod
         paymentMethodCode: paymentMethodCode
         discount: discount
@@ -188,10 +187,10 @@ class CustomerXmlImport extends CommonUpdater
 
         usedEmails.push email
 
-# TODO
-# title - String - Optional
-# defaultShippingAddressId - String - Optional
-# defaultBillingAddressId - String - Optional
+        # TODO: add mapping for
+        # - title
+        # defaultShippingAddressId
+        # defaultBillingAddressId
 
         streetInfo = @splitStreet xmlHelpers.xmlVal xml, 'Street'
         customer =
@@ -217,7 +216,7 @@ class CustomerXmlImport extends CommonUpdater
 
     data =
       customers: customers
-      customInfo: customInfo
+      paymentInfos: paymentInfos
 
     callback data
 
