@@ -9,7 +9,7 @@ describe 'process', ->
   beforeEach ->
     @import = new CustomerXmlImport Config
 
-  it 'one existing customer', (done) ->
+  it 'should stop as updating customers isnt support yet', (done) ->
     rawXml = '
 <Customer>
   <CustomerNr>1234</CustomerNr>
@@ -30,7 +30,7 @@ describe 'process', ->
       expect(msg.message).toBe 'Update of customer isnt implemented yet!'
       done()
 
-  it 'one new customer', (done) ->
+  it 'should create customer and payment info object', (done) ->
     unique = new Date().getTime()
     rawXml = "
 <Customer>
@@ -53,4 +53,29 @@ describe 'process', ->
       expect(_.size(result.message)).toBe 2
       expect(result.message['Payment info created.']).toBe 1
       expect(result.message['Customer has no group.']).toBe 1
+      done()
+
+   it 'should create customer with customer group', (done) ->
+    unique = new Date().getTime()
+    rawXml = "
+<Customer>
+  <CustomerNr>12123</CustomerNr>
+  <Street>Foo 1</Street>
+  <Group>B2B</Group>
+  <Employees>
+    <Employee>
+      <employeeNr>1</employeeNr>
+      <email>someoneelse+#{unique}@example.com</email>
+      <gender>Mrs.</gender>
+      <firstname>Some</firstname>
+      <lastname>One</lastname>
+    </Employee>
+  </Employees>
+</Customer>"
+    @import.run rawXml, (result) =>
+      console.log result
+      expect(result.status).toBe true
+      expect(_.size(result.message)).toBe 2
+      expect(result.message['Payment info created.']).toBe 1
+      expect(result.message['Customer linked to customer group.']).toBe 1
       done()
