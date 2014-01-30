@@ -78,21 +78,25 @@ class CustomerXmlImport extends CommonUpdater
         @returnResult true, msg, callback
 
   create: (newCustomer, paymentInfo, callback) ->
-    console.log "create"
     deferred = Q.defer()
-    @createCustomer(newCustomer).fail (msg) =>
+    @createCustomer(newCustomer).fail (msg) ->
       deferred.reject msg
     .then (customer) =>
-      posts = [@createPaymentInfo(customer, paymentInfo), @linkCustomerIntoGroup(customer, newCustomer.customerGroup)]
-      Q.all(posts).fail (msg) =>
+      @addAddress(customer, newCustomer.addresses[0]).fail (msg) ->
         deferred.reject msg
-      .then (msg) =>
-        deferred.resolve msg
+      .then (customer) =>
+        posts = [
+          @createPaymentInfo(customer, paymentInfo)
+          @linkCustomerIntoGroup(customer, newCustomer.customerGroup)
+        ]
+        Q.all(posts).fail (msg) =>
+          deferred.reject msg
+        .then (msg) =>
+          deferred.resolve msg
 
     deferred.promise
 
   createCustomer: (newCustomer) ->
-    console.log 'createCustomer'
     deferred = Q.defer()
 
     @rest.POST '/customers', JSON.stringify(newCustomer), (error, response, body) ->
@@ -106,7 +110,6 @@ class CustomerXmlImport extends CommonUpdater
     deferred.promise
 
   createPaymentInfo: (customer, paymentInfo) ->
-    console.log 'createPaymentInfo'
     deferred = Q.defer()
 
     unless paymentInfo
@@ -129,7 +132,6 @@ class CustomerXmlImport extends CommonUpdater
     deferred.promise
 
   linkCustomerIntoGroup: (customer, customerGroup) ->
-    console.log 'linkCustomerIntoGroup'
     deferred = Q.defer()
 
     unless customerGroup
@@ -154,6 +156,27 @@ class CustomerXmlImport extends CommonUpdater
 
     deferred.promise
 
+  addAddress: (customer, address) ->
+    deferred = Q.defer()
+
+    data =
+      id: customer.id
+      version: customer.version
+      actions: [
+        action: 'addAddress'
+        address: address
+      ]
+
+    @rest.POST "/customers/#{customer.id}", JSON.stringify(data), (error, response, body) ->
+      if error
+        deferred.reject 'Error on adding address: ' + error
+      if response.statusCode is 200
+        deferred.resolve JSON.parse(body)
+      else
+        deferred.reject 'Problem on adding address: ' + body
+
+    deferred.promise
+
   transform: (rawXml, customerGroupName2Id) ->
     deferred = Q.defer()
     xmlHelpers.xmlTransform xmlHelpers.xmlFix(rawXml), (err, result) =>
@@ -165,7 +188,6 @@ class CustomerXmlImport extends CommonUpdater
     deferred.promise
 
   mapCustomers: (xmljs, customerGroupName2Id) ->
-    console.log 'mapCustomers'
     paymentInfos = {}
     customers = {}
     @usedEmails = []
@@ -213,7 +235,6 @@ class CustomerXmlImport extends CommonUpdater
       paymentInfos: paymentInfos
 
   createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup) ->
-    console.log 'createCustomerData'
     employee = xml unless employee
     # TODO: add mapping for
     # - title
