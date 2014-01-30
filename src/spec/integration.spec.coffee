@@ -51,9 +51,7 @@ describe '#run', ->
     @import.run rawXml, (result) ->
       console.log result unless result.status
       expect(result.status).toBe true
-      expect(_.size(result.message)).toBe 2
-      expect(result.message['Payment info created.']).toBe 1
-      expect(result.message['Customer has no group.']).toBe 1
+      expect(result.message).toBe 'Customer created.'
       done()
 
    it 'should create customer with customer group', (done) ->
@@ -76,9 +74,7 @@ describe '#run', ->
     @import.run rawXml, (result) ->
       console.log result unless result.status
       expect(result.status).toBe true
-      expect(_.size(result.message)).toBe 2
-      expect(result.message['Payment info created.']).toBe 1
-      expect(result.message['Customer linked to customer group.']).toBe 1
+      expect(result.message).toBe 'Customer created.'
       done()
 
   it 'should create multiple customer', (done) ->
@@ -125,8 +121,6 @@ describe '#run', ->
     @import.run rawXml, (result) =>
       console.log result unless result.status
       expect(result.status).toBe true
-      expect(_.size(result.message)).toBe 3
-      expect(result.message['Payment info created.']).toBe 3
-      expect(result.message['Customer linked to customer group.']).toBe 2
-      expect(result.message['Customer has no group.']).toBe 1
+      expect(_.size result.message).toBe 1
+      expect(result.message['Customer created.']).toBe 3
       done()

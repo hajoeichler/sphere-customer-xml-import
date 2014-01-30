@@ -92,7 +92,7 @@ class CustomerXmlImport extends CommonUpdater
         Q.all(posts).fail (msg) =>
           deferred.reject msg
         .then (msg) =>
-          deferred.resolve msg
+          deferred.resolve "Customer created."
 
     deferred.promise
 
