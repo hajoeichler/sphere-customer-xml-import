@@ -72,7 +72,7 @@ class CustomerXmlImport extends CommonUpdater
 
       @processInBatches posts, callback
 
-  processInBatches: (posts, callback, numberOfParallelRequest = 50, acc = []) =>
+  processInBatches: (posts, callback, numberOfParallelRequest = 20, acc = []) =>
     current = _.take posts, numberOfParallelRequest
     Q.all(current).then (msg) =>
       messages = acc.concat(msg)
@@ -95,9 +95,9 @@ class CustomerXmlImport extends CommonUpdater
           @createPaymentInfo(customer, paymentInfo)
           @linkCustomerIntoGroup(customer, newCustomer.customerGroup)
         ]
-        Q.all(posts).fail (msg) =>
+        Q.all(posts).fail (msg) ->
           deferred.reject msg
-        .then (msg) =>
+        .then (msg) ->
           deferred.resolve "Customer created."
 
     deferred.promise
@@ -108,7 +108,7 @@ class CustomerXmlImport extends CommonUpdater
     @rest.POST '/customers', JSON.stringify(newCustomer), (error, response, body) ->
       if error
         deferred.reject 'Error on creating customer: ' + error
-      if response.statusCode is 201
+      else if response.statusCode is 201
         deferred.resolve JSON.parse(body).customer
       else
         deferred.reject 'Problem on creating customer: ' + body
@@ -130,7 +130,7 @@ class CustomerXmlImport extends CommonUpdater
     @rest.POST '/custom-objects', JSON.stringify(customObj), (error, response, body) ->
       if error
         deferred.reject 'Error on creating payment-info object: ' + error
-      if response.statusCode is 201
+      else if response.statusCode is 201
         deferred.resolve 'Payment info created.'
       else
         deferred.reject 'Problem on creating payment-info object: ' + body
@@ -155,7 +155,7 @@ class CustomerXmlImport extends CommonUpdater
     @rest.POST "/customers/#{customer.id}", JSON.stringify(data), (error, response, body) ->
       if error
         deferred.reject 'Error on linking customer with group: ' + error
-      if response.statusCode is 200
+      else if response.statusCode is 200
         deferred.resolve 'Customer linked to customer group.'
       else
         deferred.reject 'Problem on linking customer with group: ' + body
@@ -176,7 +176,7 @@ class CustomerXmlImport extends CommonUpdater
     @rest.POST "/customers/#{customer.id}", JSON.stringify(data), (error, response, body) ->
       if error
         deferred.reject 'Error on adding address: ' + error
-      if response.statusCode is 200
+      else if response.statusCode is 200
         deferred.resolve JSON.parse(body)
       else
         deferred.reject 'Problem on adding address: ' + body
