@@ -70,12 +70,18 @@ class CustomerXmlImport extends CommonUpdater
       if _.size(posts) is 0
         @returnResult true, 'Nothing done.', callback
 
-      Q.all(posts).fail (msg) =>
-        msg = _.flatten msg if _.isArray msg
-        @returnResult false, msg, callback
-      .then (msg) =>
-        msg = _.flatten msg if _.isArray msg
-        @returnResult true, msg, callback
+      @processInBatches posts, callback
+
+  processInBatches: (posts, callback, numberOfParallelRequest = 50, acc = []) =>
+    current = _.take posts, numberOfParallelRequest
+    Q.all(current).then (msg) =>
+      messages = acc.concat(msg)
+      if _.size(current) < numberOfParallelRequest
+        @returnResult true, messages, callback
+      else
+        @processInBatches _.tail(posts, numberOfParallelRequest), callback, numberOfParallelRequest, messages
+    .fail (msg) =>
+      @returnResult false, msg, callback
 
   create: (newCustomer, paymentInfo, callback) ->
     deferred = Q.defer()
