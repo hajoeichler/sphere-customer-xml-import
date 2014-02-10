@@ -258,9 +258,9 @@ class CustomerXmlImport extends CommonUpdater
     customer =
       email: email
       externalId: customerNumber
-      firstName: xmlHelpers.xmlVal employee, 'firstname', ''
-      lastName: xmlHelpers.xmlVal employee, 'lastname', xmlHelpers.xmlVal(xml, 'LastName')
-      password: Math.random().toString(36).slice(2) # some random password
+      firstName: xmlHelpers.xmlVal employee, 'firstname', xmlHelpers.xmlVal(xml, 'firstname')
+      lastName: xmlHelpers.xmlVal employee, 'lastname', xmlHelpers.xmlVal(xml, 'lastname')
+      password: xmlHelpers.xmlVal employee, 'password', Math.random().toString(36).slice(2) # some random password
       addresses: [
         streetName: streetInfo.name
         streetNumber: streetInfo.number
