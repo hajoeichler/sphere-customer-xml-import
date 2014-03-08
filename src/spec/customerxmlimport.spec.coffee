@@ -78,15 +78,12 @@ describe 'transform', ->
     rawXml = '
 <Customer>
   <CustomerNr>123</CustomerNr>
-  <uidShop></uidShop>
-  <SessionLanguage></SessionLanguage>
   <EmailCompany>some.one@example.com</EmailCompany>
   <genderCode>1</genderCode>
   <gender>Dear Mrs.</gender>
-  <Firstname></Firstname>
-  <LastName>One</LastName>
-  <Password></Password>
-  <Group>B2B</Group>
+  <firstname></firstname>
+  <lastName>One</lastName>
+  <group>B2B</group>
   <Street>Somewhere 42</Street>
   <zip>12345</zip>
   <town>Gotham City</town>
@@ -106,8 +103,8 @@ describe 'transform', ->
 
     @import.transform(rawXml, B2B: 'cg123').then (data) ->
       customers = data.customers
-      expect(customers['123'].length).toBe 1
-      c = customers['123'][0]
+      expect(customers.length).toBe 1
+      c = customers[0]
       expect(c.email).toBe 'some.one@example.com'
       expect(c.lastName).toBe 'One'
       expect(c.password).toBeDefined
@@ -133,7 +130,8 @@ describe 'transform', ->
 
       done()
     .fail (msg) ->
-      expect(msg).toBe false
+      console.log msg
+      expect(true).toBe false
       done()
 
   it 'single attachment - customer with two employee', (done) ->
@@ -162,14 +160,10 @@ describe 'transform', ->
 
     @import.transform(rawXml, B2C: 'cg123').then (data) ->
       customers = data.customers
-      expect(customers['1234'].length).toBe 2
-      c = customers['1234'][0]
+      expect(customers.length).toBe 2
+      c = customers[0]
       expect(c.email).toBe 'some.one@example.com'
       expect(c.lastName).toBe 'One'
-      expect(c.password).toBeDefined
-      c = customers['1234'][1]
-      expect(c.email).toBe 'else@example.com'
-      expect(c.lastName).toBe 'Else'
       expect(c.password).toBeDefined
       paymentInfos = data.paymentInfos
       expect(paymentInfos['1234'].paymentMethodCode).toEqual ['101','105']
@@ -178,5 +172,6 @@ describe 'transform', ->
 
       done()
     .fail (msg) ->
-      expect(msg).toBe false
+      console.log msg
+      expect(true).toBe false
       done()

@@ -30,16 +30,15 @@ class CustomerXmlImport extends CommonUpdater
 
   run: (xmlString, callback) ->
     groups = [ @ensureCustomerGroupByName(CUSTOMER_GROUP_B2B_NAME), @ensureCustomerGroupByName(CUSTOMER_GROUP_B2C_WITH_CARD_NAME)]
-    Q.all(groups).fail (msg) =>
-      @returnResult false, msg, callback
+    Q.all(groups)
     .then ([b2bCustomerGroup, b2cWithCardCustomerGroup]) =>
       customerGroupName2Id = {}
       customerGroupName2Id[CUSTOMER_GROUP_B2B_NAME] = b2bCustomerGroup.id
       customerGroupName2Id[CUSTOMER_GROUP_B2C_WITH_CARD_NAME] = b2cWithCardCustomerGroup.id
       @transform(xmlString, customerGroupName2Id).then (data) =>
         @createOrUpdate data, callback
-      .fail (msg) =>
-        @returnResult false, msg, callback
+    .fail (msg) =>
+      @returnResult false, msg, callback
 
   createOrUpdate: (data, callback) ->
     @rest.GET "/customers?limit=0", (error, response, body) =>
@@ -56,16 +55,15 @@ class CustomerXmlImport extends CommonUpdater
       console.log "Existing customers: " + _.size(email2id)
 
       posts = []
-      for customer of data.customers
-        for employee in data.customers[customer]
-          paymentInfo = data.paymentInfos[customer]
-          if _.has email2id, employee.email
-            # TODO: support updating of customers
-            deferred = Q.defer()
-            deferred.resolve 'Update of customer is not implemented yet!'
-            posts.push deferred.promise
-          else
-            posts.push @create employee, paymentInfo, callback
+      for customer in data.customers
+        paymentInfo = data.paymentInfos[customer]
+        if _.has email2id, customer.email
+          # TODO: support updating of customers
+          deferred = Q.defer()
+          deferred.resolve 'Update of customer is not implemented yet!'
+          posts.push deferred.promise
+        else
+          posts.push @create customer, paymentInfo, callback
 
       if _.size(posts) is 0
         @returnResult true, 'Nothing done.', callback
@@ -85,20 +83,17 @@ class CustomerXmlImport extends CommonUpdater
 
   create: (newCustomer, paymentInfo, callback) ->
     deferred = Q.defer()
-    @createCustomer(newCustomer).fail (msg) ->
-      deferred.reject msg
+    @createCustomer(newCustomer)
     .then (customer) =>
-      @addAddress(customer, newCustomer.addresses[0]).fail (msg) ->
-        deferred.reject msg
-      .then (customer) =>
-        posts = [
-          @createPaymentInfo(customer, paymentInfo)
-          @linkCustomerIntoGroup(customer, newCustomer.customerGroup)
-        ]
-        Q.all(posts).fail (msg) ->
-          deferred.reject msg
-        .then (msg) ->
-          deferred.resolve "Customer created."
+      @addAddress(customer, newCustomer.addresses[0])
+    .then (customer) =>
+      posts = [
+        @createPaymentInfo(customer, paymentInfo)
+        @linkCustomerIntoGroup(customer, newCustomer.customerGroup)
+      ]
+      Q.all(posts)
+    .then (msg) ->
+      deferred.resolve "Customer created."
 
     deferred.promise
 
@@ -195,18 +190,17 @@ class CustomerXmlImport extends CommonUpdater
 
   mapCustomers: (xmljs, customerGroupName2Id) ->
     paymentInfos = {}
-    customers = {}
+    customers = []
     @usedEmails = []
     for k, xml of xmljs.Customer
       customerNumber = xmlHelpers.xmlVal xml, 'CustomerNr'
-      customers[customerNumber] = []
 
       country = xmlHelpers.xmlVal xml, 'country'
       if country is not 'D'
         # TODO support multiple countries
         console.log "Unsupported country '#{country}'"
         continue
-      customerGroup = xmlHelpers.xmlVal xml, 'Group', NO_CUSTOMER_GROUP
+      customerGroup = xmlHelpers.xmlVal xml, 'group', NO_CUSTOMER_GROUP
       discount = xmlHelpers.xmlVal xml, 'Discount', '0.0'
       discount = parseFloat discount
 
@@ -230,26 +224,18 @@ class CustomerXmlImport extends CommonUpdater
 
       unless xml.Employees
         customer = @createCustomerData xml, null, customerNumber, customerGroupName2Id, customerGroup
-        customers[customerNumber].push customer if customer
+        customers.push customer if customer
       else
         for employee in xml.Employees[0].Employee
           customer = @createCustomerData xml, employee, customerNumber, customerGroupName2Id, customerGroup
-          customers[customerNumber].push customer if customer
+          customers.push customer if customer
 
     data =
       customers: customers
       paymentInfos: paymentInfos
 
   createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup) ->
-    employee = xml unless employee
-    # TODO: add mapping for
-    # - title
-    # defaultShippingAddressId
-    # defaultBillingAddressId
-
-    email = xmlHelpers.xmlVal employee, 'email'
-    email = xmlHelpers.xmlVal xml, 'EmailCompany' unless email
-
+    email = xmlHelpers.xmlVal employee, 'email', xmlHelpers.xmlVal(xml, 'EmailCompany')
     return unless email # we can't import customers without email
     return if _.indexOf(@usedEmails, email) isnt -1 # email already used
     @usedEmails.push email
@@ -258,9 +244,11 @@ class CustomerXmlImport extends CommonUpdater
     customer =
       email: email
       externalId: customerNumber
+      customerNumber: customerNumber
+      title: xmlHelpers.xmlVal employee, 'gender', xmlHelpers.xmlVal employee, 'gender'
       firstName: xmlHelpers.xmlVal employee, 'firstname', xmlHelpers.xmlVal(xml, 'firstname')
       lastName: xmlHelpers.xmlVal employee, 'lastname', xmlHelpers.xmlVal(xml, 'lastname')
-      password: xmlHelpers.xmlVal employee, 'password', Math.random().toString(36).slice(2) # some random password
+      password: xmlHelpers.xmlVal xml, 'password', Math.random().toString(36).slice(2) # some random password
       addresses: [
         streetName: streetInfo.name
         streetNumber: streetInfo.number
@@ -269,6 +257,7 @@ class CustomerXmlImport extends CommonUpdater
         country: 'DE'
         phone: xmlHelpers.xmlVal xml, 'phone'
       ]
+
     customer.addresses[0].additionalStreetInfo = streetInfo.additionalStreetInfo if streetInfo.additionalStreetInfo
     if customerGroup isnt NO_CUSTOMER_GROUP
       customer.customerGroup =

@@ -5,7 +5,7 @@ CustomerXmlImport = require '../lib/customerxmlimport'
 # Increase timeout
 jasmine.getEnv().defaultTimeoutInterval = 20000
 
-describe '#run', ->
+xdescribe '#run', ->
   beforeEach ->
     @import = new CustomerXmlImport Config
 
