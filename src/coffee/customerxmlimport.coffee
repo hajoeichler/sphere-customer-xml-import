@@ -1,165 +1,98 @@
-_ = require('underscore')._
+{_} = require 'underscore'
 {parseString} = require 'xml2js'
-Rest = require('sphere-node-connect').Rest
 CommonUpdater = require('sphere-node-sync').CommonUpdater
+SphereClient = require 'sphere-node-client'
 Q = require 'q'
 crypto = require 'crypto'
 xmlHelpers = require '../lib/xmlhelpers'
 
 class CustomerXmlImport extends CommonUpdater
 
-  NO_CUSTOMER_GROUP = 'NONE'
-  CUSTOMER_GROUP_B2C_NAME = 'B2C'
-  CUSTOMER_GROUP_B2B_NAME = 'B2B'
-  CUSTOMER_GROUP_B2C_WITH_CARD_NAME = 'B2C with card'
+  NO_CUSTOMER_GROUP: 'NONE'
+  CUSTOMER_GROUP_B2C_NAME: 'B2C'
+  CUSTOMER_GROUP_B2B_NAME: 'B2B'
+  CUSTOMER_GROUP_B2C_WITH_CARD_NAME: 'B2C with card'
 
   constructor: (options = {}) ->
     super options
-    @rest = new Rest options
-    @
+    @client = new SphereClient options
+    this
 
-  elasticio: (msg, cfg, cb, snapshot) ->
-    throw new Error 'JSON Object required' unless _.isObject msg
-    throw new Error 'Callback must be a function' unless _.isFunction cb
-
-    if _.size(msg.attachments) > 0
-      for fileName, content of msg.attachments
-        @run content, cb
-    else
-      @returnResult false, 'No XML attachments found!', cb
-
-  run: (xmlString, callback) ->
-    groups = [ @ensureCustomerGroupByName(CUSTOMER_GROUP_B2B_NAME), @ensureCustomerGroupByName(CUSTOMER_GROUP_B2C_WITH_CARD_NAME)]
-    Q.all(groups)
-    .then ([b2bCustomerGroup, b2cWithCardCustomerGroup]) =>
+  run: (xmlString) ->
+    Q.all([
+      @ensureCustomerGroupByName @CUSTOMER_GROUP_B2B_NAME
+      @ensureCustomerGroupByName @CUSTOMER_GROUP_B2C_WITH_CARD_NAME
+    ])
+    .spread (b2bCustomerGroup, b2cWithCardCustomerGroup) =>
       customerGroupName2Id = {}
-      customerGroupName2Id[CUSTOMER_GROUP_B2B_NAME] = b2bCustomerGroup.id
-      customerGroupName2Id[CUSTOMER_GROUP_B2C_WITH_CARD_NAME] = b2cWithCardCustomerGroup.id
-      @transform(xmlString, customerGroupName2Id).then (data) =>
-        @createOrUpdate data, callback
-    .fail (msg) =>
-      @returnResult false, msg, callback
+      customerGroupName2Id[@CUSTOMER_GROUP_B2B_NAME] = b2bCustomerGroup.id
+      customerGroupName2Id[@CUSTOMER_GROUP_B2C_WITH_CARD_NAME] = b2cWithCardCustomerGroup.id
+      @transform(xmlString, customerGroupName2Id)
+    .then (customerData) =>
+      @createOrUpdate customerData
 
-  createOrUpdate: (data, callback) ->
-    @rest.GET "/customers?limit=0", (error, response, body) =>
-      if error
-        @returnResult false, 'Error on fetch existing customers: ' + error, callback
-        return
-      if response.statusCode isnt 200
-        @returnResult false, 'Problem on fetch existing customers: ' + body, callback
-        return
-      existingCustomers = JSON.parse(body).results
+  ensureCustomerGroupByName: (name) ->
+    @client.customerGroups.fetch()
+    .then (result) =>
+      customerGroup = _.find result.results, (cg) ->
+        cg.name is name
+      if customerGroup?
+        Q customerGroup
+      else
+        customerGroup =
+          groupName: name
+        @client.customerGroups.save customerGroup
+
+  createOrUpdate: (customerData) ->
+    deferred = Q.defer()
+    @client.customers.perPage(500).fetch()
+    .then (result) =>
+
+      existingCustomers = result.results
       email2id = {}
       for ec in existingCustomers
         email2id[ec.email] = ec.id
       console.log "Existing customers: " + _.size(email2id)
 
       posts = []
-      for customer in data.customers
-        paymentInfo = data.paymentInfos[customer]
+      for data in customerData
+        customer = data.customer
+        paymentInfo = data.paymentInfo
         if _.has email2id, customer.email
           # TODO: support updating of customers
-          deferred = Q.defer()
-          deferred.resolve 'Update of customer is not implemented yet!'
-          posts.push deferred.promise
+          posts.push Q('Update of customer is not implemented yet!')
         else
-          posts.push @create customer, paymentInfo, callback
+          posts.push @create customer, paymentInfo
 
       if _.size(posts) is 0
-        @returnResult true, 'Nothing done.', callback
+        Q 'Nothing done.'
 
-      @processInBatches posts, callback
+      @processInBatches posts
 
-  processInBatches: (posts, callback, numberOfParallelRequest = 20, acc = []) =>
+  processInBatches: (posts, numberOfParallelRequest = 20, acc = []) =>
     current = _.take posts, numberOfParallelRequest
     Q.all(current).then (msg) =>
       messages = acc.concat(msg)
       if _.size(current) < numberOfParallelRequest
-        @returnResult true, messages, callback
+        Q messages
       else
-        @processInBatches _.tail(posts, numberOfParallelRequest), callback, numberOfParallelRequest, messages
-    .fail (msg) =>
-      @returnResult false, msg, callback
+        @processInBatches _.tail(posts, numberOfParallelRequest), numberOfParallelRequest, messages
 
-  create: (newCustomer, paymentInfo, callback) ->
-    deferred = Q.defer()
+  create: (newCustomer, paymentInfo) ->
     @createCustomer(newCustomer)
     .then (customer) =>
-      @addAddress(customer, newCustomer.addresses[0])
+      @addAddress(customer.customer, newCustomer.addresses[0])
     .then (customer) =>
-      posts = [
-        @createPaymentInfo(customer, paymentInfo)
-        @linkCustomerIntoGroup(customer, newCustomer.customerGroup)
-      ]
-      Q.all(posts)
-    .then (msg) ->
-      deferred.resolve "Customer created."
-
-    deferred.promise
+      @linkCustomerIntoGroup(customer, newCustomer.customerGroup)
+    .then (customer) =>
+      @createPaymentInfo(customer, paymentInfo)
+    .then (customer) ->
+      Q 'Customer created.'
 
   createCustomer: (newCustomer) ->
-    deferred = Q.defer()
-
-    @rest.POST '/customers', JSON.stringify(newCustomer), (error, response, body) ->
-      if error
-        deferred.reject 'Error on creating customer: ' + error
-      else if response.statusCode is 201
-        deferred.resolve JSON.parse(body).customer
-      else
-        deferred.reject 'Problem on creating customer: ' + body
-
-    deferred.promise
-
-  createPaymentInfo: (customer, paymentInfo) ->
-    deferred = Q.defer()
-
-    unless paymentInfo
-      deferred.resolve 'Customer has no paymentInfo.'
-      return deferred.promise
-
-    customObj =
-      container: "paymentMethodInfo"
-      key: customer.id
-      value: paymentInfo
-
-    @rest.POST '/custom-objects', JSON.stringify(customObj), (error, response, body) ->
-      if error
-        deferred.reject 'Error on creating payment-info object: ' + error
-      else if response.statusCode is 201
-        deferred.resolve 'Payment info created.'
-      else
-        deferred.reject 'Problem on creating payment-info object: ' + body
-
-    deferred.promise
-
-  linkCustomerIntoGroup: (customer, customerGroup) ->
-    deferred = Q.defer()
-
-    unless customerGroup
-      deferred.resolve 'Customer has no group.'
-      return deferred.promise
-
-    data =
-      id: customer.id
-      version: customer.version
-      actions: [
-        action: 'setCustomerGroup'
-        customerGroup: customerGroup
-      ]
-
-    @rest.POST "/customers/#{customer.id}", JSON.stringify(data), (error, response, body) ->
-      if error
-        deferred.reject 'Error on linking customer with group: ' + error
-      else if response.statusCode is 200
-        deferred.resolve 'Customer linked to customer group.'
-      else
-        deferred.reject 'Problem on linking customer with group: ' + body
-
-    deferred.promise
+    @client.customers.save newCustomer
 
   addAddress: (customer, address) ->
-    deferred = Q.defer()
-
     data =
       id: customer.id
       version: customer.version
@@ -168,15 +101,32 @@ class CustomerXmlImport extends CommonUpdater
         address: address
       ]
 
-    @rest.POST "/customers/#{customer.id}", JSON.stringify(data), (error, response, body) ->
-      if error
-        deferred.reject 'Error on adding address: ' + error
-      else if response.statusCode is 200
-        deferred.resolve JSON.parse(body)
-      else
-        deferred.reject 'Problem on adding address: ' + body
+    @client.customers.byId(customer.id).save data
 
-    deferred.promise
+  linkCustomerIntoGroup: (customer, customerGroup) ->
+    unless customerGroup?
+      Q customer
+    else
+      data =
+        id: customer.id
+        version: customer.version
+        actions: [
+          action: 'setCustomerGroup'
+          customerGroup: customerGroup
+        ]
+
+      @client.customers.byId(customer.id).save data
+
+  createPaymentInfo: (customer, paymentInfo) ->
+    unless paymentInfo?
+      Q customer
+    else
+      customObj =
+        container: "paymentMethodInfo"
+        key: customer.id
+        value: paymentInfo
+
+      @client.customObjects.save customObj
 
   transform: (rawXml, customerGroupName2Id) ->
     deferred = Q.defer()
@@ -189,24 +139,27 @@ class CustomerXmlImport extends CommonUpdater
     deferred.promise
 
   mapCustomers: (xmljs, customerGroupName2Id) ->
-    paymentInfos = {}
-    customers = []
+    customerData = []
     @usedEmails = []
     for k, xml of xmljs.Customer
       customerNumber = xmlHelpers.xmlVal xml, 'CustomerNr'
 
       country = xmlHelpers.xmlVal xml, 'country'
-      if country is not 'D'
-        # TODO support multiple countries
-        console.log "Unsupported country '#{country}'"
+      country = switch country
+        when 'D' then 'DE'
+        when 'A' then 'AT'
+
+      unless country?
+        console.error "Unsupported country '#{country}'"
         continue
-      customerGroup = xmlHelpers.xmlVal xml, 'group', NO_CUSTOMER_GROUP
+
+      customerGroup = xmlHelpers.xmlVal xml, 'group', @NO_CUSTOMER_GROUP
       discount = xmlHelpers.xmlVal xml, 'Discount', '0.0'
       discount = parseFloat discount
 
       # B2C: set customer group if she has a discount. Otherwise the customer isn't in any group
-      customerGroup = CUSTOMER_GROUP_B2C_WITH_CARD_NAME if customerGroup is CUSTOMER_GROUP_B2C_NAME
-      customerGroup = NO_CUSTOMER_GROUP if customerGroup is CUSTOMER_GROUP_B2C_WITH_CARD_NAME and discount is 0
+      customerGroup = @CUSTOMER_GROUP_B2C_WITH_CARD_NAME if customerGroup is @CUSTOMER_GROUP_B2C_NAME
+      customerGroup = @NO_CUSTOMER_GROUP if customerGroup is @CUSTOMER_GROUP_B2C_WITH_CARD_NAME and discount is 0
 
       paymentMethodCode = xmlHelpers.xmlVal xml, 'PaymentMethodCode', []
       paymentMethod = xmlHelpers.xmlVal xml, 'PaymentMethod', []
@@ -217,24 +170,22 @@ class CustomerXmlImport extends CommonUpdater
       if _.isString paymentMethodCode
         paymentMethodCode = paymentMethodCode.split ','
 
-      paymentInfos[customerNumber] =
+      paymentInfo =
         paymentMethod: paymentMethod
         paymentMethodCode: paymentMethodCode
         discount: discount
 
-      unless xml.Employees
-        customer = @createCustomerData xml, null, customerNumber, customerGroupName2Id, customerGroup
-        customers.push customer if customer
-      else
-        for employee in xml.Employees[0].Employee
-          customer = @createCustomerData xml, employee, customerNumber, customerGroupName2Id, customerGroup
-          customers.push customer if customer
+      xml.Employees or= [ { Employee: [] } ]
+      customer = @createCustomerData xml, xml.Employees[0].Employee[0], customerNumber, customerGroupName2Id, customerGroup, country
+      if customer
+        data =
+          customer: customer
+          paymentInfo: paymentInfo
+        customerData.push data
 
-    data =
-      customers: customers
-      paymentInfos: paymentInfos
+    customerData
 
-  createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup) ->
+  createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup, country) ->
     email = xmlHelpers.xmlVal employee, 'email', xmlHelpers.xmlVal(xml, 'EmailCompany')
     return unless email # we can't import customers without email
     return if _.indexOf(@usedEmails, email) isnt -1 # email already used
@@ -245,7 +196,7 @@ class CustomerXmlImport extends CommonUpdater
       email: email
       externalId: customerNumber
       customerNumber: customerNumber
-      title: xmlHelpers.xmlVal employee, 'gender', xmlHelpers.xmlVal employee, 'gender'
+      title: xmlHelpers.xmlVal employee, 'gender', xmlHelpers.xmlVal(xml, 'gender')
       firstName: xmlHelpers.xmlVal employee, 'firstname', xmlHelpers.xmlVal(xml, 'firstname')
       lastName: xmlHelpers.xmlVal employee, 'lastname', xmlHelpers.xmlVal(xml, 'lastname')
       password: xmlHelpers.xmlVal xml, 'password', Math.random().toString(36).slice(2) # some random password
@@ -259,7 +210,7 @@ class CustomerXmlImport extends CommonUpdater
       ]
 
     customer.addresses[0].additionalStreetInfo = streetInfo.additionalStreetInfo if streetInfo.additionalStreetInfo
-    if customerGroup isnt NO_CUSTOMER_GROUP
+    if customerGroup isnt @NO_CUSTOMER_GROUP
       customer.customerGroup =
         typeId: 'customer-group'
         id: customerGroupName2Id[customerGroup]
@@ -286,31 +237,5 @@ class CustomerXmlImport extends CommonUpdater
       str.additionalStreetInfo = num.substring(index).trim()
 
     str
-
-  ensureCustomerGroupByName: (name) ->
-    deferred = Q.defer()
-    query = encodeURIComponent "name=\"#{name}\""
-    @rest.GET "/customer-groups?where=#{query}", (error, response, body) =>
-      if error
-        deferred.reject "Error on getting customer group: " + error
-      else
-        if response.statusCode is 200
-          res = JSON.parse(body).results
-          if res.length is 1
-            deferred.resolve res[0]
-          else
-            customerGroup =
-              groupName: name
-            @rest.POST '/customer-groups', JSON.stringify(customerGroup), (error, response, body) ->
-              if error
-                deferred.reject "Error on creating customerGroup '#{name}': " + error
-              else if response.statusCode is 201
-                deferred.resolve JSON.parse(body)
-              else
-                deferred.reject 'Problem on creating customerGroup: ' + body
-        else
-          deferred.reject "Problem on getting customer group (status: #{response.statusCode}): " + body
-    deferred.promise
-
 
 module.exports = CustomerXmlImport

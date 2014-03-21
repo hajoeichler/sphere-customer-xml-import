@@ -5,7 +5,7 @@ CustomerXmlImport = require '../lib/customerxmlimport'
 # Increase timeout
 jasmine.getEnv().defaultTimeoutInterval = 20000
 
-xdescribe '#run', ->
+describe '#run', ->
   beforeEach ->
     @import = new CustomerXmlImport Config
 
@@ -15,6 +15,7 @@ xdescribe '#run', ->
   <CustomerNr>1234</CustomerNr>
   <Street>Foo 1</Street>
   <Group>B2B</Group>
+  <country>D</country>
   <Employees>
     <Employee>
       <employeeNr>2</employeeNr>
@@ -25,19 +26,22 @@ xdescribe '#run', ->
     </Employee>
   </Employees>
 </Customer>'
-    @import.run rawXml, (result) ->
-      console.log result unless result.status
-      expect(result.status).toBe true
-      expect(result.message).toBe 'Update of customer is not implemented yet!'
+    @import.run(rawXml)
+    .then (result) ->
+      expect(result[0]).toBe 'Update of customer is not implemented yet!'
       done()
+    .fail (err) ->
+      console.log "E %j", err
+      done err
 
   it 'should create customer and payment info object', (done) ->
     unique = new Date().getTime()
     rawXml = "
 <Customer>
-  <CustomerNr>5678</CustomerNr>
+  <CustomerNr>5678#{unique}</CustomerNr>
   <Street>Foo 1</Street>
   <Group>B2C</Group>
+  <country>A</country>
   <Employees>
     <Employee>
       <employeeNr>1</employeeNr>
@@ -48,19 +52,22 @@ xdescribe '#run', ->
     </Employee>
   </Employees>
 </Customer>"
-    @import.run rawXml, (result) ->
-      console.log result unless result.status
-      expect(result.status).toBe true
-      expect(result.message).toBe 'Customer created.'
+    @import.run(rawXml)
+    .then (result) ->
+      expect(result[0]).toBe 'Customer created.'
       done()
+    .fail (err) ->
+      console.log "E %j", err
+      done err
 
    it 'should create customer with customer group', (done) ->
     unique = new Date().getTime()
     rawXml = "
 <Customer>
-  <CustomerNr>12123</CustomerNr>
+  <CustomerNr>12123-#{unique}</CustomerNr>
   <Street>Foo 1</Street>
   <Group>B2B</Group>
+  <country>D</country>
   <Employees>
     <Employee>
       <employeeNr>1</employeeNr>
@@ -71,19 +78,22 @@ xdescribe '#run', ->
     </Employee>
   </Employees>
 </Customer>"
-    @import.run rawXml, (result) ->
-      console.log result unless result.status
-      expect(result.status).toBe true
-      expect(result.message).toBe 'Customer created.'
+    @import.run(rawXml)
+    .then (result) ->
+      expect(result[0]).toBe 'Customer created.'
       done()
+    .fail (err) ->
+      console.log "E %j", err
+      done err
 
   it 'should create multiple customer', (done) ->
     unique = new Date().getTime()
     rawXml = "
 <Customer>
-  <CustomerNr>multi1</CustomerNr>
+  <CustomerNr>multi1-#{unique}</CustomerNr>
   <Street>Foo 1</Street>
   <Group>B2B</Group>
+  <country>A</country>
   <Employees>
     <Employee>
       <employeeNr>1</employeeNr>
@@ -102,9 +112,10 @@ xdescribe '#run', ->
   </Employees>
 </Customer>
 <Customer>
-  <CustomerNr>multi2</CustomerNr>
+  <CustomerNr>multi2#{unique}</CustomerNr>
   <Street>There he goes 99-100</Street>
   <Group>B2C</Group>
+  <country>D</country>
   <Employees>
     <Employee>
       <employeeNr>3</employeeNr>
@@ -118,9 +129,12 @@ xdescribe '#run', ->
   <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
 </Customer>
 "
-    @import.run rawXml, (result) =>
-      console.log result unless result.status
-      expect(result.status).toBe true
-      expect(_.size result.message).toBe 1
-      expect(result.message['Customer created.']).toBe 3
+    @import.run(rawXml)
+    .then (result) =>
+      expect(_.size result).toBe 2
+      expect(result[0]).toBe 'Customer created.'
+      expect(result[1]).toBe 'Customer created.'
       done()
+    .fail (err) ->
+      console.log "E %j", err
+      done err

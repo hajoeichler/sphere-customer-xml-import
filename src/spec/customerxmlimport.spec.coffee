@@ -1,5 +1,6 @@
 Config = require '../config'
 CustomerXmlImport = require '../lib/customerxmlimport'
+_ = require('underscore')._
 
 describe 'CustomerXmlImport', ->
   beforeEach ->
@@ -7,22 +8,6 @@ describe 'CustomerXmlImport', ->
 
   it 'should initialize', ->
     expect(@import).toBeDefined()
-
-describe 'process', ->
-  beforeEach ->
-    @import = new CustomerXmlImport Config
-
-  it 'should throw error if no JSON object is passed', ->
-    expect(@import.elasticio).toThrow new Error('JSON Object required')
-
-  it 'should throw error if no JSON object is passed', ->
-    expect(=> @import.elasticio({})).toThrow new Error('Callback must be a function')
-
-  it 'should call the given callback and return messge', (done) ->
-    @import.elasticio {}, {}, (data) ->
-      expect(data.status).toBe false
-      expect(data.message).toBe 'No XML attachments found!'
-      done()
 
 describe '#splitStreet', ->
   beforeEach ->
@@ -74,6 +59,36 @@ describe 'transform', ->
   beforeEach ->
     @import = new CustomerXmlImport Config
 
+  it 'single attachment - customer without employee', (done) ->
+    rawXml = '
+<Customer>
+  <CustomerNr>customer123</CustomerNr>
+  <EmailCompany>me@example.com</EmailCompany>
+  <genderCode>1</genderCode>
+  <gender>Dear Mrs.</gender>
+  <firstname>Me</firstname>
+  <lastname>Be</lastname>
+  <group>B2B</group>
+  <Street>Somewhere 42</Street>
+  <zip>12345</zip>
+  <town>Gotham City</town>
+  <country>D</country>
+  <phone>001-1234567890</phone>
+  <Discount>3.500</Discount>
+</Customer>'
+
+    @import.transform(rawXml, B2B: 'customerGroupA').then (customerData) ->
+      expect(_.size customerData).toBe 1
+      c = customerData[0].customer
+      expect(c.email).toBe 'me@example.com'
+      expect(c.externalId).toBe 'customer123'
+      expect(c.customerNumber).toBe 'customer123'
+      expect(c.firstName).toBe 'Me'
+      expect(c.lastName).toBe 'Be'
+      expect(c.password).toBeDefined
+
+      done()
+
   it 'single attachment - customer with one employee', (done) ->
     rawXml = '
 <Customer>
@@ -82,7 +97,7 @@ describe 'transform', ->
   <genderCode>1</genderCode>
   <gender>Dear Mrs.</gender>
   <firstname></firstname>
-  <lastName>One</lastName>
+  <lastname>One</lastname>
   <group>B2B</group>
   <Street>Somewhere 42</Street>
   <zip>12345</zip>
@@ -101,10 +116,9 @@ describe 'transform', ->
   <Discount>3.500</Discount>
 </Customer>'
 
-    @import.transform(rawXml, B2B: 'cg123').then (data) ->
-      customers = data.customers
-      expect(customers.length).toBe 1
-      c = customers[0]
+    @import.transform(rawXml, B2B: 'cg123').then (customerData) ->
+      expect(_.size customerData).toBe 1
+      c = customerData[0].customer
       expect(c.email).toBe 'some.one@example.com'
       expect(c.lastName).toBe 'One'
       expect(c.password).toBeDefined
@@ -123,10 +137,10 @@ describe 'transform', ->
       expect(c.customerGroup.id).toBe 'cg123'
       expect(c.password.length).toBeGreaterThan 7
 
-      paymentInfos = data.paymentInfos
-      expect(paymentInfos['123'].paymentMethodCode).toEqual [ ]
-      expect(paymentInfos['123'].paymentMethod).toEqual [ ]
-      expect(paymentInfos['123'].discount).toEqual 3.5
+      paymentInfo = customerData[0].paymentInfo
+      expect(paymentInfo.paymentMethodCode).toEqual [ ]
+      expect(paymentInfo.paymentMethod).toEqual [ ]
+      expect(paymentInfo.discount).toEqual 3.5
 
       done()
     .fail (msg) ->
@@ -139,6 +153,8 @@ describe 'transform', ->
 <Customer>
   <CustomerNr>1234</CustomerNr>
   <Street>Somewhere 42</Street>
+  <EmailCompany>company@example.com</EmailCompany>
+  <country>A</country>
   <Employees>
     <Employee>
       <employeeNr>2</employeeNr>
@@ -158,17 +174,17 @@ describe 'transform', ->
   <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
 </Customer>'
 
-    @import.transform(rawXml, B2C: 'cg123').then (data) ->
-      customers = data.customers
-      expect(customers.length).toBe 2
-      c = customers[0]
+    @import.transform(rawXml, B2C: 'cg123').then (customerData) ->
+      expect(_.size customerData).toBe 1
+      c = customerData[0].customer
       expect(c.email).toBe 'some.one@example.com'
+      expect(c.firstName).toBe 'Some'
       expect(c.lastName).toBe 'One'
       expect(c.password).toBeDefined
-      paymentInfos = data.paymentInfos
-      expect(paymentInfos['1234'].paymentMethodCode).toEqual ['101','105']
-      expect(paymentInfos['1234'].paymentMethod).toEqual ['Gutschrift','Vorauskasse']
-      expect(paymentInfos['1234'].discount).toEqual 0
+      paymentInfo = customerData[0].paymentInfo
+      expect(paymentInfo.paymentMethodCode).toEqual ['101','105']
+      expect(paymentInfo.paymentMethod).toEqual ['Gutschrift','Vorauskasse']
+      expect(paymentInfo.discount).toEqual 0
 
       done()
     .fail (msg) ->
