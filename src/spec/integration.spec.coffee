@@ -130,7 +130,7 @@ describe '#run', ->
 </Customer>
 "
     @import.run(rawXml)
-    .then (result) =>
+    .then (result) ->
       expect(_.size result).toBe 2
       expect(result[0]).toBe 'Customer created.'
       expect(result[1]).toBe 'Customer created.'
