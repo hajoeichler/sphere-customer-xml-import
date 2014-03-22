@@ -24,8 +24,12 @@ importer = new CustomerXmlImport options
 
 fs.readFile argv.xmlfile, 'utf8', (err, content) ->
   if err
-    console.error "Problems on reading file '#{argv.xmlfile}': " + err
+    console.error "Problems on reading file '#{argv.xmlfile}': #{err}"
     process.exit 2
-  importer.run content, (result) ->
+  importer.run(content)
+  .then (result) ->
     console.log result
-    process.exit 1 unless result.status
+    process.exit 0
+  .fail (err) ->
+    console.error err
+    process.exit 1
