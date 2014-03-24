@@ -45,7 +45,7 @@ class CustomerXmlImport extends CommonUpdater
 
   createOrUpdate: (customerData) ->
     deferred = Q.defer()
-    @client.customers.perPage(500).fetch()
+    @client.customers.perPage(0).fetch()
     .then (result) =>
 
       existingCustomers = result.results
