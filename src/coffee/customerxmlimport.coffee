@@ -205,7 +205,7 @@ class CustomerXmlImport extends CommonUpdater
         streetNumber: streetInfo.number
         postalCode: xmlHelpers.xmlVal xml, 'zip'
         city: xmlHelpers.xmlVal xml, 'town'
-        country: 'DE'
+        country: country
         phone: xmlHelpers.xmlVal xml, 'phone'
       ]
 

@@ -36,9 +36,10 @@ describe '#run', ->
 
   it 'should create customer and payment info object', (done) ->
     unique = new Date().getTime()
+    customerNumber = "5678#{unique}"
     rawXml = "
 <Customer>
-  <CustomerNr>5678#{unique}</CustomerNr>
+  <CustomerNr>#{customerNumber}</CustomerNr>
   <Street>Foo 1</Street>
   <Group>B2C</Group>
   <country>A</country>
@@ -51,14 +52,40 @@ describe '#run', ->
       <lastname>One</lastname>
     </Employee>
   </Employees>
+  <Discount>3.7000</Discount>
+  <PaymentMethodCode>101,105</PaymentMethodCode>
+  <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
 </Customer>"
     @import.run(rawXml)
-    .then (result) ->
+    .then (result) =>
       expect(result[0]).toBe 'Customer created.'
+      @import.client.customers.where("customerNumber = \"#{customerNumber}\"").fetch()
+    .then (result) =>
+      expect(_.size result.results).toBe 1
+      customer = result.results[0]
+      expect(customer.customerNumber).toBe customerNumber
+      expect(customer.externalId).toBe customerNumber
+      expect(customer.firstName).toBe 'Some'
+      expect(customer.lastName).toBe 'One'
+      expect(customer.email).toBe "some.one.else+#{unique}@example.com"
+      expect(customer.password).toBeDefined()
+      expect(customer.title).toBe 'Mrs.'
+      expect(_.size customer.addresses).toBe 1
+      address = customer.addresses[0]
+      expect(address.country).toBe 'AT'
+      expect(address.streetName).toBe "Foo"
+      expect(address.streetNumber).toBe '1'
+      @import.client.customObjects.byId("paymentMethodInfo/#{customer.id}").fetch()
+    .then (result) ->
+      expect(result.value).toBeDefined()
+      expect(result.value.discount).toBe 3.7
+      expect(result.value.paymentMethod).toEqual [ 'Gutschrift', 'Vorauskasse' ]
+      expect(result.value.paymentMethodCode).toEqual [ '101', '105' ]
       done()
     .fail (err) ->
       console.log "E %j", err
       done err
+
 
    it 'should create customer with customer group', (done) ->
     unique = new Date().getTime()
