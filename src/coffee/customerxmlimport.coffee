@@ -197,7 +197,7 @@ class CustomerXmlImport extends CommonUpdater
       externalId: customerNumber
       customerNumber: customerNumber
       title: xmlHelpers.xmlVal employee, 'gender', xmlHelpers.xmlVal(xml, 'gender')
-      firstName: xmlHelpers.xmlVal employee, 'firstname', xmlHelpers.xmlVal(xml, 'firstname')
+      firstName: xmlHelpers.xmlVal employee, 'firstname', xmlHelpers.xmlVal(xml, 'firstname', '-')
       lastName: xmlHelpers.xmlVal employee, 'lastname', xmlHelpers.xmlVal(xml, 'lastname')
       password: xmlHelpers.xmlVal xml, 'password', Math.random().toString(36).slice(2) # some random password
       addresses: [
