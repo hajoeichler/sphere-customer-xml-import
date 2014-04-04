@@ -53,7 +53,7 @@ class CustomerXmlImport extends CommonUpdater
       existingCustomers = result.results
       email2id = {}
       for ec in existingCustomers
-        email2id[ec.email] = ec.id
+        email2id[ec.email] = ec
       console.log "Existing customers: " + _.size(email2id)
 
       posts = []
@@ -63,6 +63,7 @@ class CustomerXmlImport extends CommonUpdater
         if _.has email2id, customer.email
           # TODO: support updating of customers
           posts.push Q('Update of customer is not implemented yet!')
+          @taskQueue.addTask _.bind(@update, this, customer, customer.email, email2id[customer.email])
         else
           posts.push @taskQueue.addTask _.bind(@create, this, customer, paymentInfo)
 
@@ -93,6 +94,31 @@ class CustomerXmlImport extends CommonUpdater
       deferred.reject "deferred.promise: #{err}"
     .done()
     deferred.promise
+
+  update: (newCustomer, email, existingCustomer) ->
+    deferred = Q.defer()
+    @client._rest.POST '/customers/password-token', email: email, (error, response, body) ->
+      if error?
+        deferred.reject "Error on getting passwd reset token: #{error}"
+      else if response.statusCode isnt 201
+        deferred.reject "Problem on getting passwd reset token: #{body}"
+      else
+        data =
+          id: existingCustomer.id
+          version: existingCustomer.version
+          tokenValue: body.value
+          newPassword: newCustomer.password
+        @client._rest.POST '/customers/password/reset', email: email, (error, response, body) ->
+          if error?
+            deferred.reject "Error on reseting passwd: #{error}"
+          else if response.statusCode isnt 200
+            deferred.reject "Problem on getting passwd reset token: #{body}"
+          else
+            deferred.resolve "Password reset done."
+
+
+    deferred.promise
+
 
   create: (newCustomer, paymentInfo) ->
     deferred = Q.defer()
