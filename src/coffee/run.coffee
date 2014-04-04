@@ -33,3 +33,4 @@ fs.readFile argv.xmlfile, 'utf8', (err, content) ->
   .fail (err) ->
     console.error err
     process.exit 1
+  .done()

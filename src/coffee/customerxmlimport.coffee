@@ -5,6 +5,7 @@ SphereClient = require 'sphere-node-client'
 Q = require 'q'
 crypto = require 'crypto'
 xmlHelpers = require '../lib/xmlhelpers'
+TaskQueue = require './taskqueue'
 
 class CustomerXmlImport extends CommonUpdater
 
@@ -16,6 +17,7 @@ class CustomerXmlImport extends CommonUpdater
   constructor: (options = {}) ->
     super options
     @client = new SphereClient options
+    @taskQueue = new TaskQueue()
     this
 
   run: (xmlString) ->
@@ -62,23 +64,38 @@ class CustomerXmlImport extends CommonUpdater
           # TODO: support updating of customers
           posts.push Q('Update of customer is not implemented yet!')
         else
-          posts.push @create customer, paymentInfo
+          posts.push @taskQueue.addTask _.bind(@create, this, customer, paymentInfo)
 
       if _.size(posts) is 0
-        Q 'Nothing done.'
+        deferred.resolve 'Nothing done.'
 
-      @processInBatches posts
+      console.log "Processing #{_.size posts} customer(s)..."
+      @processInBatches(posts)
+      .then (result) ->
+        deferred.resolve result
+      .fail (err) ->
+        deferred.reject err
+      .done()
 
-  processInBatches: (posts, numberOfParallelRequest = 20, acc = []) =>
+    deferred.promise
+
+  processInBatches: (posts, numberOfParallelRequest = 10, acc = []) =>
+    deferred = Q.defer()
     current = _.take posts, numberOfParallelRequest
-    Q.all(current).then (msg) =>
+    Q.all(current)
+    .then (msg) =>
       messages = acc.concat(msg)
       if _.size(current) < numberOfParallelRequest
-        Q messages
+        deferred.resolve messages
       else
         @processInBatches _.tail(posts, numberOfParallelRequest), numberOfParallelRequest, messages
+    .fail (err) ->
+      deferred.reject "deferred.promise: #{err}"
+    .done()
+    deferred.promise
 
   create: (newCustomer, paymentInfo) ->
+    deferred = Q.defer()
     @createCustomer(newCustomer)
     .then (customer) =>
       @addAddress(customer.customer, newCustomer.addresses[0])
@@ -87,7 +104,12 @@ class CustomerXmlImport extends CommonUpdater
     .then (customer) =>
       @createPaymentInfo(customer, paymentInfo)
     .then (customer) ->
-      Q 'Customer created.'
+      deferred.resolve "Customer created."
+    .fail (err) ->
+      deferred.reject "create: #{err}"
+    .done()
+
+    deferred.promise
 
   createCustomer: (newCustomer) ->
     @client.customers.save newCustomer
