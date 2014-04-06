@@ -9,7 +9,7 @@ describe '#run', ->
   beforeEach ->
     @import = new CustomerXmlImport Config
 
-  xit 'should stop as updating customers isnt support yet', (done) ->
+  it 'should stop as updating customers isnt support yet', (done) ->
     rawXml = '
 <root>
   <Customer>
