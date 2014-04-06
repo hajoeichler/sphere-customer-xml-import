@@ -1,13 +1,11 @@
-{_} = require 'underscore'
+_ = require 'underscore'
 {parseString} = require 'xml2js'
-CommonUpdater = require('sphere-node-sync').CommonUpdater
 SphereClient = require 'sphere-node-client'
 Q = require 'q'
 crypto = require 'crypto'
 xmlHelpers = require '../lib/xmlhelpers'
-TaskQueue = require './taskqueue'
 
-class CustomerXmlImport extends CommonUpdater
+class CustomerXmlImport
 
   NO_CUSTOMER_GROUP: 'NONE'
   CUSTOMER_GROUP_B2C_NAME: 'B2C'
@@ -15,9 +13,7 @@ class CustomerXmlImport extends CommonUpdater
   CUSTOMER_GROUP_B2C_WITH_CARD_NAME: 'B2C with card'
 
   constructor: (options = {}) ->
-    super options
     @client = new SphereClient options
-    @taskQueue = new TaskQueue()
     this
 
   run: (xmlString) ->
@@ -36,7 +32,7 @@ class CustomerXmlImport extends CommonUpdater
   ensureCustomerGroupByName: (name) ->
     @client.customerGroups.fetch()
     .then (result) =>
-      customerGroup = _.find result.results, (cg) ->
+      customerGroup = _.find result.body.results, (cg) ->
         cg.name is name
       if customerGroup?
         Q customerGroup
@@ -46,54 +42,29 @@ class CustomerXmlImport extends CommonUpdater
         @client.customerGroups.save customerGroup
 
   createOrUpdate: (customerData) ->
-    deferred = Q.defer()
     @client.customers.perPage(0).fetch()
     .then (result) =>
 
-      existingCustomers = result.results
+      existingCustomers = result.body.results
       email2id = {}
       for ec in existingCustomers
         email2id[ec.email] = ec
       console.log "Existing customers: " + _.size(email2id)
 
-      posts = []
-      for data in customerData
+      posts = _.map customerData, (data) =>
         customer = data.customer
         paymentInfo = data.paymentInfo
         if _.has email2id, customer.email
-          # TODO: support updating of customers
-          posts.push Q('Update of customer is not implemented yet!')
-          @taskQueue.addTask _.bind(@update, this, customer, customer.email, email2id[customer.email])
+          Q('Update of customer is not implemented yet!')
+          #@update customer, customer.email, email2id[customer.email]
         else
-          posts.push @taskQueue.addTask _.bind(@create, this, customer, paymentInfo)
+          @create customer, paymentInfo
 
       if _.size(posts) is 0
-        deferred.resolve 'Nothing done.'
+        Q 'Nothing done.'
 
       console.log "Processing #{_.size posts} customer(s)..."
-      @processInBatches(posts)
-      .then (result) ->
-        deferred.resolve result
-      .fail (err) ->
-        deferred.reject err
-      .done()
-
-    deferred.promise
-
-  processInBatches: (posts, numberOfParallelRequest = 10, acc = []) =>
-    deferred = Q.defer()
-    current = _.take posts, numberOfParallelRequest
-    Q.all(current)
-    .then (msg) =>
-      messages = acc.concat(msg)
-      if _.size(current) < numberOfParallelRequest
-        deferred.resolve messages
-      else
-        @processInBatches _.tail(posts, numberOfParallelRequest), numberOfParallelRequest, messages
-    .fail (err) ->
-      deferred.reject "deferred.promise: #{err}"
-    .done()
-    deferred.promise
+      Q.all posts
 
   update: (newCustomer, email, existingCustomer) ->
     deferred = Q.defer()
@@ -116,23 +87,21 @@ class CustomerXmlImport extends CommonUpdater
           else
             deferred.resolve "Password reset done."
 
-
     deferred.promise
-
 
   create: (newCustomer, paymentInfo) ->
     deferred = Q.defer()
     @createCustomer(newCustomer)
-    .then (customer) =>
-      @addAddress(customer.customer, newCustomer.addresses[0])
-    .then (customer) =>
-      @linkCustomerIntoGroup(customer, newCustomer.customerGroup)
-    .then (customer) =>
-      @createPaymentInfo(customer, paymentInfo)
-    .then (customer) ->
-      deferred.resolve "Customer created."
+    .then (result) =>
+      @addAddress(result.body.customer, newCustomer.addresses[0])
+    .then (result) =>
+      @linkCustomerIntoGroup(result.body, newCustomer.customerGroup)
+    .then (result) =>
+      @createPaymentInfo(result, paymentInfo)
+    .then (result) ->
+      deferred.resolve 'Customer created.'
     .fail (err) ->
-      deferred.reject "create: #{err}"
+      deferred.reject err
     .done()
 
     deferred.promise
@@ -179,7 +148,7 @@ class CustomerXmlImport extends CommonUpdater
   transform: (rawXml, customerGroupName2Id) ->
     deferred = Q.defer()
     xmlHelpers.xmlTransform xmlHelpers.xmlFix(rawXml), (err, result) =>
-      if err
+      if err?
         deferred.reject 'Error on parsing XML:' + err
       else
         deferred.resolve @mapCustomers(result.root, customerGroupName2Id)
@@ -225,7 +194,7 @@ class CustomerXmlImport extends CommonUpdater
 
       xml.Employees or= [ { Employee: [] } ]
       customer = @createCustomerData xml, xml.Employees[0].Employee[0], customerNumber, customerGroupName2Id, customerGroup, country
-      if customer
+      if customer?
         data =
           customer: customer
           paymentInfo: paymentInfo
@@ -235,7 +204,7 @@ class CustomerXmlImport extends CommonUpdater
 
   createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup, country) ->
     email = xmlHelpers.xmlVal employee, 'email', xmlHelpers.xmlVal(xml, 'EmailCompany')
-    return unless email # we can't import customers without email
+    return unless email? # we can't import customers without email
     return if _.indexOf(@usedEmails, email) isnt -1 # email already used
     @usedEmails.push email
 

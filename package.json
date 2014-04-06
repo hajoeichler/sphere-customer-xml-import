@@ -36,9 +36,9 @@
   },
   "dependencies": {
     "optimist": "0.6.1",
-    "sphere-node-client": "0.5.0",
-    "sphere-node-sync": "0.4.12",
-    "underscore": "~1.6.0",
+    "sphere-node-client": "0.6.3",
+    "sphere-node-sync": "0.5.0",
+    "underscore": "1.6.0",
     "q": "1.0.0",
     "xml2js": "0.4.0"
   },

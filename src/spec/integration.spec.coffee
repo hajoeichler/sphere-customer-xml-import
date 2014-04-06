@@ -3,29 +3,31 @@ Config = require '../config'
 CustomerXmlImport = require '../lib/customerxmlimport'
 
 # Increase timeout
-jasmine.getEnv().defaultTimeoutInterval = 20000
+jasmine.getEnv().defaultTimeoutInterval = 10000
 
 describe '#run', ->
   beforeEach ->
     @import = new CustomerXmlImport Config
 
-  it 'should stop as updating customers isnt support yet', (done) ->
+  xit 'should stop as updating customers isnt support yet', (done) ->
     rawXml = '
-<Customer>
-  <CustomerNr>1234</CustomerNr>
-  <Street>Foo 1</Street>
-  <Group>B2B</Group>
-  <country>D</country>
-  <Employees>
-    <Employee>
-      <employeeNr>2</employeeNr>
-      <email>some.one+27@example.com</email>
-      <gender>Mrs.</gender>
-      <firstname>Some</firstname>
-      <lastname>One</lastname>
-    </Employee>
-  </Employees>
-</Customer>'
+<root>
+  <Customer>
+    <CustomerNr>1234</CustomerNr>
+    <Street>Foo 1</Street>
+    <Group>B2B</Group>
+    <country>D</country>
+    <Employees>
+      <Employee>
+        <employeeNr>2</employeeNr>
+        <email>some.one+27@example.com</email>
+        <gender>Mrs.</gender>
+        <firstname>Some</firstname>
+        <lastname>One</lastname>
+      </Employee>
+    </Employees>
+  </Customer>
+</root>'
     @import.run(rawXml)
     .then (result) ->
       expect(result[0]).toBe 'Update of customer is not implemented yet!'
@@ -38,31 +40,33 @@ describe '#run', ->
     unique = new Date().getTime()
     customerNumber = "5678#{unique}"
     rawXml = "
-<Customer>
-  <CustomerNr>#{customerNumber}</CustomerNr>
-  <Street>Foo 1</Street>
-  <Group>B2C</Group>
-  <country>A</country>
-  <Employees>
-    <Employee>
-      <employeeNr>1</employeeNr>
-      <email>some.one.else+#{unique}@example.com</email>
-      <gender>Mrs.</gender>
-      <firstname>Some</firstname>
-      <lastname>One</lastname>
-    </Employee>
-  </Employees>
-  <Discount>3.7000</Discount>
-  <PaymentMethodCode>101,105</PaymentMethodCode>
-  <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
-</Customer>"
+<root>
+  <Customer>
+    <CustomerNr>#{customerNumber}</CustomerNr>
+    <Street>Foo 1</Street>
+    <Group>B2C</Group>
+    <country>A</country>
+    <Employees>
+      <Employee>
+        <employeeNr>1</employeeNr>
+        <email>some.one.else+#{unique}@example.com</email>
+        <gender>Mrs.</gender>
+        <firstname>Some</firstname>
+        <lastname>One</lastname>
+      </Employee>
+    </Employees>
+    <Discount>3.7000</Discount>
+    <PaymentMethodCode>101,105</PaymentMethodCode>
+    <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
+  </Customer>
+</root>"
     @import.run(rawXml)
     .then (result) =>
       expect(result[0]).toBe 'Customer created.'
       @import.client.customers.where("customerNumber = \"#{customerNumber}\"").fetch()
     .then (result) =>
-      expect(_.size result.results).toBe 1
-      customer = result.results[0]
+      expect(_.size result.body.results).toBe 1
+      customer = result.body.results[0]
       expect(customer.customerNumber).toBe customerNumber
       expect(customer.externalId).toBe customerNumber
       expect(customer.firstName).toBe 'Some'
@@ -77,10 +81,10 @@ describe '#run', ->
       expect(address.streetNumber).toBe '1'
       @import.client.customObjects.byId("paymentMethodInfo/#{customer.id}").fetch()
     .then (result) ->
-      expect(result.value).toBeDefined()
-      expect(result.value.discount).toBe 3.7
-      expect(result.value.paymentMethod).toEqual [ 'Gutschrift', 'Vorauskasse' ]
-      expect(result.value.paymentMethodCode).toEqual [ '101', '105' ]
+      expect(result.body.value).toBeDefined()
+      expect(result.body.value.discount).toBe 3.7
+      expect(result.body.value.paymentMethod).toEqual [ 'Gutschrift', 'Vorauskasse' ]
+      expect(result.body.value.paymentMethodCode).toEqual [ '101', '105' ]
       done()
     .fail (err) ->
       console.log "E %j", err
@@ -90,21 +94,23 @@ describe '#run', ->
    it 'should create customer with customer group', (done) ->
     unique = new Date().getTime()
     rawXml = "
-<Customer>
-  <CustomerNr>12123-#{unique}</CustomerNr>
-  <Street>Foo 1</Street>
-  <Group>B2B</Group>
-  <country>D</country>
-  <Employees>
-    <Employee>
-      <employeeNr>1</employeeNr>
-      <email>someoneelse+#{unique}@example.com</email>
-      <gender>Mrs.</gender>
-      <firstname>Some</firstname>
-      <lastname>One</lastname>
-    </Employee>
-  </Employees>
-</Customer>"
+<root>
+  <Customer>
+    <CustomerNr>12123-#{unique}</CustomerNr>
+    <Street>Foo 1</Street>
+    <Group>B2B</Group>
+    <country>D</country>
+    <Employees>
+      <Employee>
+        <employeeNr>1</employeeNr>
+        <email>someoneelse+#{unique}@example.com</email>
+        <gender>Mrs.</gender>
+        <firstname>Some</firstname>
+        <lastname>One</lastname>
+      </Employee>
+    </Employees>
+  </Customer>
+</root>"
     @import.run(rawXml)
     .then (result) ->
       expect(result[0]).toBe 'Customer created.'
@@ -116,46 +122,47 @@ describe '#run', ->
   it 'should create multiple customer', (done) ->
     unique = new Date().getTime()
     rawXml = "
-<Customer>
-  <CustomerNr>multi1-#{unique}</CustomerNr>
-  <Street>Foo 1</Street>
-  <Group>B2B</Group>
-  <country>A</country>
-  <Employees>
-    <Employee>
-      <employeeNr>1</employeeNr>
-      <email>mrs.someoneelse+#{unique}@example.com</email>
-      <gender>Mrs.</gender>
-      <firstname>Some</firstname>
-      <lastname>One</lastname>
-    </Employee>
-    <Employee>
-      <employeeNr>7</employeeNr>
-      <email>mr.someoneelse+#{unique}@example.com</email>
-      <gender>Mr.</gender>
-      <firstname>Some</firstname>
-      <lastname>One</lastname>
-    </Employee>
-  </Employees>
-</Customer>
-<Customer>
-  <CustomerNr>multi2#{unique}</CustomerNr>
-  <Street>There he goes 99-100</Street>
-  <Group>B2C</Group>
-  <country>D</country>
-  <Employees>
-    <Employee>
-      <employeeNr>3</employeeNr>
-      <email>max.mustermann+#{unique}@example.com</email>
-      <gender>Mr.</gender>
-      <firstname>Max</firstname>
-      <lastname>Mustermann</lastname>
-    </Employee>
-  </Employees>
-  <PaymentMethodCode>101,105</PaymentMethodCode>
-  <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
-</Customer>
-"
+<root>
+  <Customer>
+    <CustomerNr>multi1-#{unique}</CustomerNr>
+    <Street>Foo 1</Street>
+    <Group>B2B</Group>
+    <country>A</country>
+    <Employees>
+      <Employee>
+        <employeeNr>1</employeeNr>
+        <email>mrs.someoneelse+#{unique}@example.com</email>
+        <gender>Mrs.</gender>
+        <firstname>Some</firstname>
+        <lastname>One</lastname>
+      </Employee>
+      <Employee>
+        <employeeNr>7</employeeNr>
+        <email>mr.someoneelse+#{unique}@example.com</email>
+        <gender>Mr.</gender>
+        <firstname>Some</firstname>
+        <lastname>One</lastname>
+      </Employee>
+    </Employees>
+  </Customer>
+  <Customer>
+    <CustomerNr>multi2#{unique}</CustomerNr>
+    <Street>There he goes 99-100</Street>
+    <Group>B2C</Group>
+    <country>D</country>
+    <Employees>
+      <Employee>
+        <employeeNr>3</employeeNr>
+        <email>max.mustermann+#{unique}@example.com</email>
+        <gender>Mr.</gender>
+        <firstname>Max</firstname>
+        <lastname>Mustermann</lastname>
+      </Employee>
+    </Employees>
+    <PaymentMethodCode>101,105</PaymentMethodCode>
+    <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
+  </Customer>
+</root>"
     @import.run(rawXml)
     .then (result) ->
       expect(_.size result).toBe 2

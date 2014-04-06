@@ -61,21 +61,23 @@ describe 'transform', ->
 
   it 'single attachment - customer without employee', (done) ->
     rawXml = '
-<Customer>
-  <CustomerNr>customer123</CustomerNr>
-  <EmailCompany>me@example.com</EmailCompany>
-  <genderCode>1</genderCode>
-  <gender>Dear Mrs.</gender>
-  <firstname>Me</firstname>
-  <lastname>Be</lastname>
-  <group>B2B</group>
-  <Street>Somewhere 42</Street>
-  <zip>12345</zip>
-  <town>Gotham City</town>
-  <country>D</country>
-  <phone>001-1234567890</phone>
-  <Discount>3.500</Discount>
-</Customer>'
+<root>
+  <Customer>
+    <CustomerNr>customer123</CustomerNr>
+    <EmailCompany>me@example.com</EmailCompany>
+    <genderCode>1</genderCode>
+    <gender>Dear Mrs.</gender>
+    <firstname>Me</firstname>
+    <lastname>Be</lastname>
+    <group>B2B</group>
+    <Street>Somewhere 42</Street>
+    <zip>12345</zip>
+    <town>Gotham City</town>
+    <country>D</country>
+    <phone>001-1234567890</phone>
+    <Discount>3.500</Discount>
+  </Customer>
+</root>'
 
     @import.transform(rawXml, B2B: 'customerGroupA').then (customerData) ->
       expect(_.size customerData).toBe 1
@@ -91,30 +93,32 @@ describe 'transform', ->
 
   it 'single attachment - customer with one employee', (done) ->
     rawXml = '
-<Customer>
-  <CustomerNr>123</CustomerNr>
-  <EmailCompany>some.one@example.com</EmailCompany>
-  <genderCode>1</genderCode>
-  <gender>Dear Mrs.</gender>
-  <firstname></firstname>
-  <lastname>One</lastname>
-  <group>B2B</group>
-  <Street>Somewhere 42</Street>
-  <zip>12345</zip>
-  <town>Gotham City</town>
-  <country>D</country>
-  <phone>001-1234567890</phone>
-  <Employees>
-    <Employee>
-      <employeeNr>1</employeeNr>
-      <email>some.one@example.com</email>
-      <gender>Mrs.</gender>
-      <firstname>Some</firstname>
-      <lastname>One</lastname>
-    </Employee>
-  </Employees>
-  <Discount>3.500</Discount>
-</Customer>'
+<root>
+  <Customer>
+    <CustomerNr>123</CustomerNr>
+    <EmailCompany>some.one@example.com</EmailCompany>
+    <genderCode>1</genderCode>
+    <gender>Dear Mrs.</gender>
+    <firstname></firstname>
+    <lastname>One</lastname>
+    <group>B2B</group>
+    <Street>Somewhere 42</Street>
+    <zip>12345</zip>
+    <town>Gotham City</town>
+    <country>D</country>
+    <phone>001-1234567890</phone>
+    <Employees>
+      <Employee>
+        <employeeNr>1</employeeNr>
+        <email>some.one@example.com</email>
+        <gender>Mrs.</gender>
+        <firstname>Some</firstname>
+        <lastname>One</lastname>
+      </Employee>
+    </Employees>
+    <Discount>3.500</Discount>
+  </Customer>
+</root>'
 
     @import.transform(rawXml, B2B: 'cg123').then (customerData) ->
       expect(_.size customerData).toBe 1
@@ -150,6 +154,7 @@ describe 'transform', ->
 
   it 'single attachment - customer with two employee', (done) ->
     rawXml = '
+<root>
 <Customer>
   <CustomerNr>1234</CustomerNr>
   <Street>Somewhere 42</Street>
@@ -172,7 +177,8 @@ describe 'transform', ->
   </Employees>
   <PaymentMethodCode>101,105</PaymentMethodCode>
   <PaymentMethod>Gutschrift,Vorauskasse</PaymentMethod>
-</Customer>'
+</Customer>
+</root>'
 
     @import.transform(rawXml, B2C: 'cg123').then (customerData) ->
       expect(_.size customerData).toBe 1
