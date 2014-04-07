@@ -68,10 +68,11 @@ class CustomerXmlImport
 
   update: (newCustomer, email, existingCustomer) ->
     deferred = Q.defer()
-    @client._rest.POST '/customers/password-token', email: email, (error, response, body) ->
+    @client._rest.POST '/customers/password-token', email: email, (error, response, body) =>
       if error?
         deferred.reject "Error on getting passwd reset token: #{error}"
-      else if response.statusCode isnt 201
+      else if response.statusCode isnt 200
+        console.error "Password token: %j", body
         deferred.reject "Problem on getting passwd reset token: #{body}"
       else
         data =
@@ -79,10 +80,11 @@ class CustomerXmlImport
           version: existingCustomer.version
           tokenValue: body.value
           newPassword: newCustomer.password
-        @client._rest.POST '/customers/password/reset', email: email, (error, response, body) ->
+        @client._rest.POST '/customers/password/reset', data, (error, response, body) ->
           if error?
             deferred.reject "Error on reseting passwd: #{error}"
           else if response.statusCode isnt 200
+            console.error "Password reset: %j", body
             deferred.reject "Problem on getting passwd reset token: #{body}"
           else
             deferred.resolve "Password reset done."
