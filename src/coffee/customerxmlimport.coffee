@@ -56,7 +56,7 @@ class CustomerXmlImport
         paymentInfo = data.paymentInfo
         if _.has email2id, customer.email
           Q 'Update of customer is not implemented yet!'
-          #@update customer, customer.email, email2id[customer.email]
+          #@resetPassword customer, customer.email, email2id[customer.email]
         else
           @create customer, paymentInfo
 
@@ -66,7 +66,7 @@ class CustomerXmlImport
       console.log "Processing #{_.size posts} customer(s)..."
       Q.all posts
 
-  update: (newCustomer, email, existingCustomer) ->
+  resetPassword: (newCustomer, email, existingCustomer) ->
     deferred = Q.defer()
     @client._rest.POST '/customers/password-token', email: email, (error, response, body) =>
       if error?
