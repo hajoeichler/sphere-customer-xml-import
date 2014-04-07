@@ -5,12 +5,12 @@ Q = require 'q'
 crypto = require 'crypto'
 xmlHelpers = require '../lib/xmlhelpers'
 
-class CustomerXmlImport
+NO_CUSTOMER_GROUP = 'NONE'
+CUSTOMER_GROUP_B2C_NAME = 'B2C'
+CUSTOMER_GROUP_B2B_NAME = 'B2B'
+CUSTOMER_GROUP_B2C_WITH_CARD_NAME = 'B2C with card'
 
-  NO_CUSTOMER_GROUP: 'NONE'
-  CUSTOMER_GROUP_B2C_NAME: 'B2C'
-  CUSTOMER_GROUP_B2B_NAME: 'B2B'
-  CUSTOMER_GROUP_B2C_WITH_CARD_NAME: 'B2C with card'
+class CustomerXmlImport
 
   constructor: (options = {}) ->
     @client = new SphereClient options
@@ -18,13 +18,13 @@ class CustomerXmlImport
 
   run: (xmlString) ->
     Q.all([
-      @ensureCustomerGroupByName @CUSTOMER_GROUP_B2B_NAME
-      @ensureCustomerGroupByName @CUSTOMER_GROUP_B2C_WITH_CARD_NAME
+      @ensureCustomerGroupByName CUSTOMER_GROUP_B2B_NAME
+      @ensureCustomerGroupByName CUSTOMER_GROUP_B2C_WITH_CARD_NAME
     ])
     .spread (b2bCustomerGroup, b2cWithCardCustomerGroup) =>
       customerGroupName2Id = {}
-      customerGroupName2Id[@CUSTOMER_GROUP_B2B_NAME] = b2bCustomerGroup.id
-      customerGroupName2Id[@CUSTOMER_GROUP_B2C_WITH_CARD_NAME] = b2cWithCardCustomerGroup.id
+      customerGroupName2Id[CUSTOMER_GROUP_B2B_NAME] = b2bCustomerGroup.id
+      customerGroupName2Id[CUSTOMER_GROUP_B2C_WITH_CARD_NAME] = b2cWithCardCustomerGroup.id
       @transform(xmlString, customerGroupName2Id)
     .then (customerData) =>
       @createOrUpdate customerData
@@ -55,7 +55,7 @@ class CustomerXmlImport
         customer = data.customer
         paymentInfo = data.paymentInfo
         if _.has email2id, customer.email
-          Q('Update of customer is not implemented yet!')
+          Q 'Update of customer is not implemented yet!'
           #@update customer, customer.email, email2id[customer.email]
         else
           @create customer, paymentInfo
@@ -97,7 +97,7 @@ class CustomerXmlImport
     .then (result) =>
       @linkCustomerIntoGroup(result.body, newCustomer.customerGroup)
     .then (result) =>
-      @createPaymentInfo(result, paymentInfo)
+      @createPaymentInfo(result.body, paymentInfo)
     .then (result) ->
       deferred.resolve 'Customer created.'
     .fail (err) ->
@@ -122,7 +122,7 @@ class CustomerXmlImport
 
   linkCustomerIntoGroup: (customer, customerGroup) ->
     unless customerGroup?
-      Q customer
+      Q body: customer
     else
       data =
         id: customer.id
@@ -136,7 +136,9 @@ class CustomerXmlImport
 
   createPaymentInfo: (customer, paymentInfo) ->
     unless paymentInfo?
-      Q customer
+      msg = "No paymentMethodInfo for customer #{customer.id}"
+      console.error msg
+      Q msg
     else
       customObj =
         container: "paymentMethodInfo"
@@ -170,13 +172,13 @@ class CustomerXmlImport
         console.error "Unsupported country '#{country}'"
         continue
 
-      customerGroup = xmlHelpers.xmlVal xml, 'group', @NO_CUSTOMER_GROUP
+      customerGroup = xmlHelpers.xmlVal xml, 'group', NO_CUSTOMER_GROUP
       discount = xmlHelpers.xmlVal xml, 'Discount', '0.0'
       discount = parseFloat discount
 
       # B2C: set customer group if she has a discount. Otherwise the customer isn't in any group
-      customerGroup = @CUSTOMER_GROUP_B2C_WITH_CARD_NAME if customerGroup is @CUSTOMER_GROUP_B2C_NAME
-      customerGroup = @NO_CUSTOMER_GROUP if customerGroup is @CUSTOMER_GROUP_B2C_WITH_CARD_NAME and discount is 0
+      customerGroup = CUSTOMER_GROUP_B2C_WITH_CARD_NAME if customerGroup is CUSTOMER_GROUP_B2C_NAME
+      customerGroup = NO_CUSTOMER_GROUP if customerGroup is CUSTOMER_GROUP_B2C_WITH_CARD_NAME and discount is 0
 
       paymentMethodCode = xmlHelpers.xmlVal xml, 'PaymentMethodCode', []
       paymentMethod = xmlHelpers.xmlVal xml, 'PaymentMethod', []
@@ -227,7 +229,7 @@ class CustomerXmlImport
       ]
 
     customer.addresses[0].additionalStreetInfo = streetInfo.additionalStreetInfo if streetInfo.additionalStreetInfo
-    if customerGroup isnt @NO_CUSTOMER_GROUP
+    if customerGroup isnt NO_CUSTOMER_GROUP
       customer.customerGroup =
         typeId: 'customer-group'
         id: customerGroupName2Id[customerGroup]
