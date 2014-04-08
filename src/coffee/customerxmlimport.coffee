@@ -47,15 +47,19 @@ class CustomerXmlImport
 
       existingCustomers = result.body.results
       email2id = {}
+      usedCustomerNumbers = []
       for ec in existingCustomers
         email2id[ec.email] = ec
+        usedCustomerNumbers.push ec.customerNumber
       console.log "Existing customers: " + _.size(email2id)
 
       posts = _.map customerData, (data) =>
         customer = data.customer
         paymentInfo = data.paymentInfo
-        if _.has email2id, customer.email
-          Q 'Update of customer is not implemented yet!'
+        if _.contains(usedCustomerNumbers, customer.customerNumber)
+          Q 'Update of customer is not implemented yet - number exists!'
+        else if _.has email2id, customer.email
+          Q 'Update of customer is not implemented yet - email exist!'
           #@resetPassword customer, customer.email, email2id[customer.email]
         else
           @create customer, paymentInfo
@@ -209,7 +213,9 @@ class CustomerXmlImport
   createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup, country) ->
     email = xmlHelpers.xmlVal employee, 'email', xmlHelpers.xmlVal(xml, 'EmailCompany')
     return unless email? # we can't import customers without email
-    return if _.indexOf(@usedEmails, email) isnt -1 # email already used
+    if _.indexOf(@usedEmails, email) isnt -1
+      console.warn "Email #{email} at least twice in XML!"
+      return
     @usedEmails.push email
 
     streetInfo = @splitStreet xmlHelpers.xmlVal xml, 'Street', ''
