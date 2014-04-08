@@ -56,11 +56,13 @@ class CustomerXmlImport
       posts = _.map customerData, (data) =>
         customer = data.customer
         paymentInfo = data.paymentInfo
-        if _.contains(usedCustomerNumbers, customer.customerNumber)
-          Q 'Update of customer is not implemented yet - number exists!'
-        else if _.has email2id, customer.email
-          Q 'Update of customer is not implemented yet - email exist!'
+        if _.has email2id, customer.email
+          Q "Update of customer is not implemented yet - email '#{customer.email}' exist!"
           #@resetPassword customer, customer.email, email2id[customer.email]
+          #@ensurePaymentInfo email2id[customer.email], paymentInfo
+          #@syncIdenfifier customer, email2id[customer.email]
+        else if _.contains(usedCustomerNumbers, customer.customerNumber)
+          Q "Update of customer is not implemented yet - number '#{customer.customerNumber}' exists!"
         else
           @create customer, paymentInfo
 
@@ -71,27 +73,63 @@ class CustomerXmlImport
       Q.all posts
 
   resetPassword: (newCustomer, email, existingCustomer) ->
+    @client.customers._task.addTask =>
+      deferred = Q.defer()
+      @client._rest.POST '/customers/password-token', email: email, (error, response, body) =>
+        if error?
+          deferred.reject "Error on getting passwd reset token: #{error}"
+        else if response.statusCode isnt 200
+          console.error "Password token: %j", body
+          deferred.reject "Problem on getting passwd reset token: #{body}"
+        else
+          data =
+            id: existingCustomer.id
+            version: existingCustomer.version
+            tokenValue: body.value
+            newPassword: newCustomer.password
+          @client._rest.POST '/customers/password/reset', data, (error, response, body) ->
+            if error?
+              deferred.reject "Error on reseting passwd: #{error}"
+            else if response.statusCode isnt 200
+              console.error "Password reset: %j", body
+              deferred.reject "Problem on getting passwd reset token: #{body}"
+            else
+              deferred.resolve "Password reset done."
+
+      deferred.promise
+
+  ensurePaymentInfo: (existingCustomer, paymentInfo) ->
     deferred = Q.defer()
-    @client._rest.POST '/customers/password-token', email: email, (error, response, body) =>
-      if error?
-        deferred.reject "Error on getting passwd reset token: #{error}"
-      else if response.statusCode isnt 200
-        console.error "Password token: %j", body
-        deferred.reject "Problem on getting passwd reset token: #{body}"
-      else
+    @createPaymentInfo(existingCustomer, paymentInfo)
+    .then (result) ->
+      deferred.resolve 'PaymentMethodInfo ensured.'
+    .fail (err) ->
+      deferred.reject err
+    .done()
+
+    deferred.promise
+
+  syncIdenfifier: (newCustomer, existingCustomer) ->
+    deferred = Q.defer()
+    if newCustomer.customerNumber is existingCustomer.customerNumber
+      if newCustomer.externalId isnt existingCustomer.externalId
         data =
           id: existingCustomer.id
           version: existingCustomer.version
-          tokenValue: body.value
-          newPassword: newCustomer.password
-        @client._rest.POST '/customers/password/reset', data, (error, response, body) ->
-          if error?
-            deferred.reject "Error on reseting passwd: #{error}"
-          else if response.statusCode isnt 200
-            console.error "Password reset: %j", body
-            deferred.reject "Problem on getting passwd reset token: #{body}"
-          else
-            deferred.resolve "Password reset done."
+          actions: [
+            action: 'setExternalId'
+            externalId: newCustomer.externalId
+          ]
+        @client.customers.byId(customer.id).save data
+        .then (result) ->
+          deferred.resolve 'PaymentMethodInfo ensured.'
+        .fail (err) ->
+          deferred.reject err
+        .done()
+      else
+        deferred.resolve "Customer externalIds already synced."
+    else
+      deferred.reject "Customer numbers do not match for externalId sync."
 
     deferred.promise
 
