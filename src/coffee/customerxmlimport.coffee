@@ -57,7 +57,11 @@ class CustomerXmlImport
         customer = data.customer
         paymentInfo = data.paymentInfo
         if _.has email2id, customer.email
-          Q "Update of customer is not implemented yet - email '#{customer.email}' exist!"
+          if _.size(email2id[customer.email].addresses or []) is 0
+            console.warn "Customer without address"
+            #@addAddress(email2id[customer.email], customer.addresses[0])
+          else
+            Q "Update of customer is not implemented yet - email '#{customer.email}' exist!"
           #@resetPassword customer, customer.email, email2id[customer.email]
           #@ensurePaymentInfo email2id[customer.email], paymentInfo
           #@syncIdenfifier customer, email2id[customer.email]
