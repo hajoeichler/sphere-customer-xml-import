@@ -58,16 +58,17 @@ class CustomerXmlImport
         paymentInfo = data.paymentInfo
         if _.has email2id, customer.email
           if _.size(email2id[customer.email].addresses or []) is 0
-            console.warn "Customer without address"
+            Q "Customer without address"
             #@addAddress(email2id[customer.email], customer.addresses[0])
-          #if email2id[customer.email].customerGroup?
-          #  @linkCustomerIntoGroup(email2id[customer.email], customer.customerGroup)
+          #if not email2id[customer.email].customerGroup?
+            #@linkCustomerIntoGroup(email2id[customer.email], customer.customerGroup)
 
-          Q "Update of customer is not implemented yet - email '#{customer.email}' exist!"
+          else
+            Q "Update of customer is not implemented yet - email '#{customer.email}' exist!"
 
-          #@resetPassword customer, customer.email, email2id[customer.email]
-          #@ensurePaymentInfo email2id[customer.email], paymentInfo
-          #@syncIdenfifier customer, email2id[customer.email]
+            #@resetPassword customer, customer.email, email2id[customer.email]
+            #@ensurePaymentInfo email2id[customer.email], paymentInfo
+            #@syncIdenfifier customer, email2id[customer.email]
         else if _.contains(usedCustomerNumbers, customer.customerNumber)
           Q "Update of customer is not implemented yet - number '#{customer.customerNumber}' exists!"
         else
@@ -75,9 +76,9 @@ class CustomerXmlImport
 
       if _.size(posts) is 0
         Q 'Nothing done.'
-
-      console.log "Processing #{_.size posts} customer(s)..."
-      Q.all posts
+      else
+        console.log "Processing #{_.size posts} customer(s)..."
+        Q.all posts
 
   resetPassword: (newCustomer, email, existingCustomer) ->
     @client.customers._task.addTask =>
