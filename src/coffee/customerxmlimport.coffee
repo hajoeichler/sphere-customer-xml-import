@@ -215,13 +215,13 @@ class CustomerXmlImport
     for k, xml of xmljs.Customer
       customerNumber = xmlHelpers.xmlVal xml, 'CustomerNr'
 
-      country = xmlHelpers.xmlVal xml, 'country'
-      country = switch country
+      rawCountry = xmlHelpers.xmlVal xml, 'country'
+      country = switch rawCountry
         when 'D' then 'DE'
         when 'A' then 'AT'
 
       unless country?
-        console.error "Unsupported country '#{country}'"
+        console.error "Unsupported country '#{rawCountry}'"
         continue
 
       customerGroup = xmlHelpers.xmlVal xml, 'group', NO_CUSTOMER_GROUP
