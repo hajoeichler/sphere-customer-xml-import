@@ -13,7 +13,6 @@ cleanup() {
   echo "Cleaning up"
   rm -rf package
   rm "${PKG_NAME}"-*
-  rm -rf tmp
   set -e
 }
 
@@ -44,7 +43,7 @@ echo "About to push to ${LATEST_BRANCH_NAME} branch"
 git push --force origin master:${LATEST_BRANCH_NAME}
 cd -
 
-# cleanup package / tmp folder
+# cleanup
 cleanup
 
 echo "Congratulations, the latest package has been successfully released"
