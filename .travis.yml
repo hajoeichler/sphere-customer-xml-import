@@ -9,3 +9,6 @@ env:
   - secure: kQZojd/y8wnfyKNbn4DLYnlyhG8kjPo2CX+09SZ88XFjSprFqKA2Fk2yTpRqQtpx/bKLwb6KupUm+ev6rWEwohpv/s4PVgh0IsyVh58ETAOwHkGMTzt17DvFGfD+Fh2KfjqUOoJEf/enpiYb/rLO9obfziJpXDrFxgLKDsObjBI=
   - secure: aLjaGaeP46L5uJjpHEoH39+8Uz26icksDtg2ukZO7C2RkBIYBAFv5wuJZ5VtF6lofRXKF0oVek29uLphNCGj0hls7EWuqsRrGU/w7fX+rzOGIqpG7tft/pJvYHXKZaezF6E7tpKNxbrMb9qVVksb0ANYlx1/W5GQjwu/4ENEil0=
   - secure: j0+bGdELry5NV1bl11IO0zk6lfdUwfaOIEbbmoc0UcwVvDs4mGauBsHWs0g73m54YcoHEOCIc5Sr3wRZfiehuTsVSzewNbbhxZpZB2akjAuG1PUpYp0Kz1KJtEB1z4d4IAfda45KQp4yEzeKraj8d1BPqo2i/4y7PaSSv25JBTE=
+branches:
+  except:
+    - latest
