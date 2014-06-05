@@ -30,7 +30,7 @@ describe '#run', ->
 </root>'
     @import.run(rawXml)
     .then (result) ->
-      expect(result[0]).toBe 'Update of customer is not implemented yet!'
+      expect(result[0]).toBe "Update of customer is not implemented yet - email 'some.one+27@example.com' exist!"
       done()
     .fail (err) ->
       console.log "E %j", err
