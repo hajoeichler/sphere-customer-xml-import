@@ -36,7 +36,7 @@ echo "Installing only production deps"
 npm install --production &>/dev/null
 # push everything inside package to 'latest' branch
 git init
-git remote add origin git@github.com:sphereio/sphere-customer-xml-import.git
+git remote add origin git@github.com:hajoeichler/sphere-customer-xml-import.git
 git add -A &>/dev/null
 git commit -m "Release packaged version ${VERSION} to ${LATEST_BRANCH_NAME} branch" &>/dev/null
 echo "About to push to ${LATEST_BRANCH_NAME} branch"
