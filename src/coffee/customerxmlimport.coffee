@@ -70,6 +70,8 @@ class CustomerXmlImport
             #@ensurePaymentInfo email2id[customer.email], paymentInfo
             #@syncIdenfifier customer, email2id[customer.email]
         else if _.contains(usedCustomerNumbers, customer.customerNumber)
+          index = _.indexOf(usedCustomerNumbers, customer.customerNumber)
+          console.log "Email has changed: '#{existingCustomers[index].email}' -> '#{customer.email}'"
           Q "Update of customer is not implemented yet - number '#{customer.customerNumber}' exists!"
         else
           @create customer, paymentInfo
