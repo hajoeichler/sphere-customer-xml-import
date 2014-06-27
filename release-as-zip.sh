@@ -37,7 +37,7 @@ echo "Installing only production deps"
 npm install --production &>/dev/null
 # push everything inside package to 'latest' branch
 git init
-git remote add origin git@github.com:sphereio/${PKG_NAME}.git
+git remote add origin git@github.com:hajoeichler/${PKG_NAME}.git
 git add -A &>/dev/null
 git commit -m "Release packaged version ${VERSION} to ${LATEST_BRANCH_NAME} branch" &>/dev/null
 echo "About to push to ${LATEST_BRANCH_NAME} branch"
@@ -48,7 +48,7 @@ cd -
 echo "About to download and test released package"
 mkdir -p tmp
 cd tmp
-curl -s -L https://github.com/sphereio/"${PKG_NAME}"/archive/latest.zip -o latest.zip
+curl -s -L https://github.com/hajoeichler/"${PKG_NAME}"/archive/latest.zip -o latest.zip
 unzip -q latest.zip
 cd "${PKG_NAME}-latest"/
 node lib/run
