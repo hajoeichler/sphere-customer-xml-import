@@ -224,3 +224,4 @@ describe '#run', ->
       console.log "E %j", err
       done err
     .done()
+  , 30000
