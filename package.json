@@ -1,7 +1,7 @@
 {
   "name": "sphere-customer-xml-import",
   "description": "Import your customer data into SPHERE.IO's inventory from XML.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "homepage": "https://github.com/hajoeichler/sphere-customer-xml-import",
   "keywords": [
     "sphere",

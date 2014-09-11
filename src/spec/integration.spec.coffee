@@ -30,11 +30,12 @@ describe '#run', ->
 </root>'
     @import.run(rawXml)
     .then (result) ->
-      expect(result[0]).toBe "Update of customer is not implemented yet - email 'some.one+27@example.com' exist!"
+      expect(result[0]).toBe "Customer externalIds already in sync."
       done()
     .fail (err) ->
       console.log "E %j", err
       done err
+    .done()
 
   it 'should create customer and payment info object', (done) ->
     unique = new Date().getTime()
@@ -89,7 +90,7 @@ describe '#run', ->
     .fail (err) ->
       console.log "E %j", err
       done err
-
+    .done()
 
    it 'should create customer with customer group', (done) ->
     unique = new Date().getTime()
@@ -118,6 +119,7 @@ describe '#run', ->
     .fail (err) ->
       console.log "E %j", err
       done err
+    .done()
 
   it 'should create multiple customer', (done) ->
     unique = new Date().getTime()
@@ -172,3 +174,53 @@ describe '#run', ->
     .fail (err) ->
       console.log "E %j", err
       done err
+    .done()
+
+  it 'should create customer and then update externalId', (done) ->
+    unique = new Date().getTime()
+    customerNumber = "externalId-update-#{unique}"
+    externalNumber = "UPDATED-#{customerNumber}"
+    rawXml = "
+<root>
+  <Customer>
+    <CustomerNr>#{customerNumber}</CustomerNr>
+    <REPLACE/>
+    <Street>Foo 1</Street>
+    <Group>B2C</Group>
+    <country>A</country>
+    <Employees>
+      <Employee>
+        <employeeNr>1</employeeNr>
+        <email>ex.id.update+#{unique}@example.com</email>
+        <gender>Mrs.</gender>
+        <firstname>Some</firstname>
+        <lastname>One</lastname>
+      </Employee>
+    </Employees>
+  </Customer>
+</root>"
+    @import.run(rawXml)
+    .then (result) =>
+      expect(result[0]).toBe 'Customer created.'
+      @import.client.customers.where("customerNumber = \"#{customerNumber}\"").fetch()
+    .then (result) =>
+      expect(_.size result.body.results).toBe 1
+      customer = result.body.results[0]
+      expect(customer.customerNumber).toBe customerNumber
+      expect(customer.externalId).toBe customerNumber
+
+      rawXmlUpdated = rawXml.replace('<REPLACE/>', "<externalId>#{externalNumber}</externalId>")
+      @import.run(rawXmlUpdated)
+      .then (result) =>
+        expect(result[0]).toBe 'Customer externalId synced.'
+        @import.client.customers.where("customerNumber = \"#{customerNumber}\"").fetch()
+      .then (result) ->
+        expect(_.size result.body.results).toBe 1
+        customer = result.body.results[0]
+        expect(customer.customerNumber).toBe customerNumber
+        expect(customer.externalId).toBe externalNumber
+        done()
+    .fail (err) ->
+      console.log "E %j", err
+      done err
+    .done()

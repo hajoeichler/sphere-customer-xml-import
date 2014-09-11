@@ -64,11 +64,12 @@ class CustomerXmlImport
             #@linkCustomerIntoGroup(email2id[customer.email], customer.customerGroup)
 
           else
-            Q "Update of customer is not implemented yet - email '#{customer.email}' exist!"
+            @syncIdenfifier customer, email2id[customer.email]
 
-            #@resetPassword customer, customer.email, email2id[customer.email]
-            #@ensurePaymentInfo email2id[customer.email], paymentInfo
-            #@syncIdenfifier customer, email2id[customer.email]
+            # The following 2 update operations were used to ensure the imported original user data had all necessary information
+            # @resetPassword customer, customer.email, email2id[customer.email]
+            # @ensurePaymentInfo email2id[customer.email], paymentInfo
+
         else if _.contains(usedCustomerNumbers, customer.customerNumber)
           index = _.indexOf(usedCustomerNumbers, customer.customerNumber)
           console.log "Email has changed: '#{existingCustomers[index].email}' -> '#{customer.email}'"
@@ -130,14 +131,14 @@ class CustomerXmlImport
             action: 'setExternalId'
             externalId: newCustomer.externalId
           ]
-        @client.customers.byId(customer.id).save data
+        @client.customers.byId(existingCustomer.id).save data
         .then (result) ->
-          deferred.resolve 'PaymentMethodInfo ensured.'
+          deferred.resolve 'Customer externalId synced.'
         .fail (err) ->
           deferred.reject err
         .done()
       else
-        deferred.resolve "Customer externalIds already synced."
+        deferred.resolve "Customer externalIds already in sync."
     else
       deferred.reject "Customer numbers do not match for externalId sync."
 
@@ -216,6 +217,7 @@ class CustomerXmlImport
     @usedEmails = []
     for k, xml of xmljs.Customer
       customerNumber = xmlHelpers.xmlVal xml, 'CustomerNr'
+      externalId = xmlHelpers.xmlVal xml, 'externalId'
 
       rawCountry = xmlHelpers.xmlVal xml, 'country'
       country = switch rawCountry
@@ -249,7 +251,7 @@ class CustomerXmlImport
         discount: discount
 
       xml.Employees or= [ { Employee: [] } ]
-      customer = @createCustomerData xml, xml.Employees[0].Employee[0], customerNumber, customerGroupName2Id, customerGroup, country
+      customer = @createCustomerData xml, xml.Employees[0].Employee[0], customerNumber, externalId, customerGroupName2Id, customerGroup, country
       if customer?
         data =
           customer: customer
@@ -258,7 +260,7 @@ class CustomerXmlImport
 
     customerData
 
-  createCustomerData: (xml, employee, customerNumber, customerGroupName2Id, customerGroup, country) ->
+  createCustomerData: (xml, employee, customerNumber, externalId, customerGroupName2Id, customerGroup, country) ->
     email = xmlHelpers.xmlVal employee, 'email', xmlHelpers.xmlVal(xml, 'EmailCompany')
     return unless email? # we can't import customers without email
     if _.indexOf(@usedEmails, email) isnt -1
@@ -269,7 +271,7 @@ class CustomerXmlImport
     streetInfo = @splitStreet xmlHelpers.xmlVal xml, 'Street', ''
     customer =
       email: email
-      externalId: customerNumber
+      externalId: externalId or customerNumber
       customerNumber: customerNumber
       title: xmlHelpers.xmlVal employee, 'gender', xmlHelpers.xmlVal(xml, 'gender')
       firstName: xmlHelpers.xmlVal employee, 'firstname', xmlHelpers.xmlVal(xml, 'firstname', '-')
