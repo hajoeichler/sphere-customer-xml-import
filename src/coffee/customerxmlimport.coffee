@@ -140,7 +140,8 @@ class CustomerXmlImport
       else
         deferred.resolve "Customer externalIds already in sync."
     else
-      deferred.reject "Customer numbers do not match for externalId sync."
+      console.log "Customer number has changed: '#{existingCustomer.customerNumber}' -> '#{newCustomer.customerNumber}'"
+      deferred.resolve "Customer numbers do not match for externalId sync."
 
     deferred.promise
 
