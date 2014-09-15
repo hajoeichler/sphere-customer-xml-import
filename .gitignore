@@ -1,6 +1,9 @@
-node_modules
 build
-lib
-test
 config.js
+lib
+node_modules
+package
+test
+tmp
 *.log
+*.tgz
